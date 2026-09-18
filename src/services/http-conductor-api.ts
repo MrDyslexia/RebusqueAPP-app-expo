@@ -1,5 +1,5 @@
 import { shipmentIdToApiId, toAssignedShipment, type Encomienda } from '@/domain/shipment';
-import { ConductorApiError, type ConductorApi } from '@/services/conductor-api';
+import { ConductorApiError, type ConductorApi, type DailyShipmentSummary } from '@/services/conductor-api';
 import { conductorApiRequest, getApiBaseUrl, getAuthorizationHeader } from '@/services/conductor-http-client';
 
 interface EncomiendaEnvelope {
@@ -8,6 +8,37 @@ interface EncomiendaEnvelope {
 
 interface EncomiendaListEnvelope {
   encomiendas: Encomienda[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toSummaryCount(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function toDailyShipmentSummary(value: unknown): DailyShipmentSummary {
+  if (!isRecord(value)) {
+    throw new ConductorApiError('Error de contrato: se esperaba el resumen diario del conductor.');
+  }
+
+  const pendientes = isRecord(value.pendientes) ? value.pendientes : {};
+  const porEstado = isRecord(pendientes.porEstado) ? pendientes.porEstado : {};
+
+  return {
+    asignadasHoy: toSummaryCount(value.asignadasHoy),
+    entregadasHoy: toSummaryCount(value.entregadasHoy),
+    pendientes: {
+      total: toSummaryCount(pendientes.total),
+      porEstado: {
+        asignada: toSummaryCount(porEstado.asignada),
+        en_ruta: toSummaryCount(porEstado.en_ruta),
+        retirado: toSummaryCount(porEstado.retirado),
+        en_reparto: toSummaryCount(porEstado.en_reparto),
+      },
+    },
+  };
 }
 
 /**
@@ -22,6 +53,12 @@ export const httpConductorApi: ConductorApi = {
     const { encomiendas } = await conductorApiRequest<EncomiendaListEnvelope>('/encomiendas');
 
     return encomiendas.map(toAssignedShipment);
+  },
+
+  async getDailyShipmentSummary() {
+    const response = await conductorApiRequest<unknown>('/encomiendas/resumen-diario');
+
+    return toDailyShipmentSummary(response);
   },
 
   async getAssignedShipment(shipmentId) {
@@ -90,40 +127,53 @@ export const httpConductorApi: ConductorApi = {
   },
 
   async getDeliveryPhotoUri(shipmentId) {
-    const apiId = shipmentIdToApiId(shipmentId);
-    const authorization = await getAuthorizationHeader();
-    const requestUrl = new URL(`/encomiendas/${apiId}/foto-entrega`, getApiBaseUrl());
+    return fetchPhotoUri(shipmentId, 'foto-entrega', 'No se pudo obtener la foto de entrega.');
+  },
 
-    let response: Response;
-
-    try {
-      response = await fetch(requestUrl, { headers: { Authorization: authorization } });
-    } catch {
-      throw new ConductorApiError('No fue posible conectar con el backend de RebusqueAPP.');
-    }
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-
-      throw new ConductorApiError('No se pudo obtener la foto de entrega.', response.status);
-    }
-
-    const blob = await response.blob();
-
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new ConductorApiError('No se pudo procesar la foto de entrega recibida.'));
-        }
-      };
-      reader.onerror = () => reject(new ConductorApiError('No se pudo procesar la foto de entrega recibida.'));
-      reader.readAsDataURL(blob);
-    });
+  async getFailureReportPhotoUri(shipmentId) {
+    return fetchPhotoUri(shipmentId, 'foto-entrega-fallida', 'No se pudo obtener la foto del reporte de falla.');
   },
 };
+
+/**
+ * Shared implementation for `GET /encomiendas/:id/{foto-entrega,foto-entrega-fallida}`:
+ * both return a binary `image/jpeg`, not JSON, and both treat `404` as an
+ * expected "no photo saved" outcome (resolves `null`) instead of an error.
+ */
+async function fetchPhotoUri(shipmentId: string, photoPath: string, requestFailedMessage: string): Promise<string | null> {
+  const apiId = shipmentIdToApiId(shipmentId);
+  const authorization = await getAuthorizationHeader();
+  const requestUrl = new URL(`/encomiendas/${apiId}/${photoPath}`, getApiBaseUrl());
+
+  let response: Response;
+
+  try {
+    response = await fetch(requestUrl, { headers: { Authorization: authorization } });
+  } catch {
+    throw new ConductorApiError('No fue posible conectar con el backend de RebusqueAPP.');
+  }
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null;
+    }
+
+    throw new ConductorApiError(requestFailedMessage, response.status);
+  }
+
+  const blob = await response.blob();
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new ConductorApiError('No se pudo procesar la foto recibida.'));
+      }
+    };
+    reader.onerror = () => reject(new ConductorApiError('No se pudo procesar la foto recibida.'));
+    reader.readAsDataURL(blob);
+  });
+}

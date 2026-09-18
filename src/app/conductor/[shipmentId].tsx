@@ -35,7 +35,8 @@ export default function ShipmentDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [deliveryPhoto, setDeliveryPhoto] = useState<DeliveryPhotoState | null>(null);
-  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
+  const [failureReportPhoto, setFailureReportPhoto] = useState<DeliveryPhotoState | null>(null);
+  const [viewerPhotoUri, setViewerPhotoUri] = useState<string | null>(null);
 
   const refetch = useCallback(() => {
     if (!id) {
@@ -64,6 +65,9 @@ export default function ShipmentDetailScreen() {
   }, [refetch]);
 
   const showDeliveryPhoto = Boolean(id && shipment && shipment.status === 'entregada' && shipment.hasDeliveryPhoto);
+  const showFailureReportPhoto = Boolean(
+    id && shipment && shipment.failedAttempts > 0 && (shipment.status === 'fallida' || shipment.status === 'finalizada'),
+  );
 
   useEffect(() => {
     if (!showDeliveryPhoto || !id) {
@@ -92,6 +96,34 @@ export default function ShipmentDetailScreen() {
       cancelled = true;
     };
   }, [id, showDeliveryPhoto]);
+
+  useEffect(() => {
+    if (!showFailureReportPhoto || !id) {
+      return;
+    }
+
+    let cancelled = false;
+    // Kicking off the async photo fetch requires an immediate "loading" state before the request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFailureReportPhoto({ status: 'loading' });
+
+    getConductorApi()
+      .getFailureReportPhotoUri(id)
+      .then((uri) => {
+        if (!cancelled) {
+          setFailureReportPhoto(uri ? { status: 'loaded', uri } : { status: 'unavailable' });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFailureReportPhoto({ status: 'unavailable' });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, showFailureReportPhoto]);
 
   useRealtimeShipmentEvents(
     useCallback(
@@ -141,7 +173,23 @@ export default function ShipmentDetailScreen() {
           <InfoRow label="Intentos de entrega fallidos" value={String(shipment.failedAttempts)} />
         ) : null}
 
-        {showDeliveryPhoto ? <DeliveryPhotoCard onOpenViewer={() => setIsPhotoViewerOpen(true)} photo={deliveryPhoto} /> : null}
+        {showDeliveryPhoto ? (
+          <PhotoCard
+            label="Foto de entrega"
+            onOpenViewer={() => deliveryPhoto?.status === 'loaded' && setViewerPhotoUri(deliveryPhoto.uri)}
+            photo={deliveryPhoto}
+            unavailableMessage="No se pudo cargar la foto de entrega."
+          />
+        ) : null}
+
+        {showFailureReportPhoto ? (
+          <PhotoCard
+            label="Foto del reporte de falla"
+            onOpenViewer={() => failureReportPhoto?.status === 'loaded' && setViewerPhotoUri(failureReportPhoto.uri)}
+            photo={failureReportPhoto}
+            unavailableMessage="No hay foto de evidencia para el reporte de falla."
+          />
+        ) : null}
 
         <View style={styles.actions}>
           {qrAction ? (
@@ -177,26 +225,33 @@ export default function ShipmentDetailScreen() {
         </View>
       </ScrollView>
 
-      <FullScreenImageViewer
-        onClose={() => setIsPhotoViewerOpen(false)}
-        uri={isPhotoViewerOpen && deliveryPhoto?.status === 'loaded' ? deliveryPhoto.uri : null}
-      />
+      <FullScreenImageViewer onClose={() => setViewerPhotoUri(null)} uri={viewerPhotoUri} />
     </SafeAreaView>
   );
 }
 
-function DeliveryPhotoCard({ onOpenViewer, photo }: { onOpenViewer: () => void; photo: DeliveryPhotoState | null }) {
+function PhotoCard({
+  label,
+  onOpenViewer,
+  photo,
+  unavailableMessage,
+}: {
+  label: string;
+  onOpenViewer: () => void;
+  photo: DeliveryPhotoState | null;
+  unavailableMessage: string;
+}) {
   return (
     <Card style={styles.photoCard}>
       <Card.Content style={styles.photoCardContent}>
-        <Text style={styles.label}>Foto de entrega</Text>
+        <Text style={styles.label}>{label}</Text>
         {photo?.status === 'loaded' ? (
-          <Pressable accessibilityLabel="Ver foto de entrega en pantalla completa" accessibilityRole="button" onPress={onOpenViewer}>
+          <Pressable accessibilityLabel={`Ver ${label.toLocaleLowerCase()} en pantalla completa`} accessibilityRole="button" onPress={onOpenViewer}>
             <Image resizeMode="cover" source={{ uri: photo.uri }} style={styles.photoImage} />
             <Text style={styles.photoHint}>Toca la foto para verla en pantalla completa</Text>
           </Pressable>
         ) : photo?.status === 'unavailable' ? (
-          <Text style={styles.photoMessage}>No se pudo cargar la foto de entrega.</Text>
+          <Text style={styles.photoMessage}>{unavailableMessage}</Text>
         ) : (
           <View style={styles.photoLoading}>
             <ActivityIndicator color={theme.colors.primary} />

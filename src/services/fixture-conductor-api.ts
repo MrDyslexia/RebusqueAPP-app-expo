@@ -45,6 +45,10 @@ export const fixtureConductorApi: ConductorApi = {
     return fixtureShipments;
   },
 
+  async getDailyShipmentSummary() {
+    throw new ConductorApiError('El resumen diario no está disponible en los datos de prueba.');
+  },
+
   async getAssignedShipment(shipmentId) {
     return fixtureShipments.find((shipment) => shipment.id === shipmentId) ?? null;
   },
@@ -111,6 +115,12 @@ export const fixtureConductorApi: ConductorApi = {
   async getDeliveryPhotoUri(_shipmentId) {
     // No canned photo asset exists for fixtures; matches the real backend's
     // "no photo saved" outcome (404 → null) instead of faking an image.
+    return null;
+  },
+
+  async getFailureReportPhotoUri(_shipmentId) {
+    // Same reasoning as getDeliveryPhotoUri: no canned asset, mirrors the
+    // real backend's 404 → null "no photo saved" outcome.
     return null;
   },
 };

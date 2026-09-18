@@ -1,5 +1,19 @@
 import type { AssignedShipment, ShipmentId } from '@/domain/shipment';
 
+export interface DailyShipmentSummary {
+  asignadasHoy: number | null;
+  entregadasHoy: number | null;
+  pendientes: {
+    total: number | null;
+    porEstado: {
+      asignada: number | null;
+      en_ruta: number | null;
+      retirado: number | null;
+      en_reparto: number | null;
+    };
+  };
+}
+
 /**
  * Boundary for the backend integration, matching the real `m4.blocktype.cl`
  * contract for the conductor role (GET /encomiendas, GET /encomiendas/:id,
@@ -11,6 +25,8 @@ import type { AssignedShipment, ShipmentId } from '@/domain/shipment';
  */
 export interface ConductorApi {
   listAssignedShipments(): Promise<readonly AssignedShipment[]>;
+  /** `GET /encomiendas/resumen-diario` — server-calculated driver daily summary. */
+  getDailyShipmentSummary(): Promise<DailyShipmentSummary>;
   getAssignedShipment(shipmentId: ShipmentId): Promise<AssignedShipment | null>;
   /**
    * `GET /encomiendas/qr/:codigoQr` — resolves an opaque, raw scanned QR
@@ -42,6 +58,14 @@ export interface ConductorApi {
    * expected, non-error outcome per the QR contract.
    */
   getDeliveryPhotoUri(shipmentId: ShipmentId): Promise<string | null>;
+  /**
+   * `GET /encomiendas/:id/foto-entrega-fallida` — fetches the most recent
+   * failed-delivery report photo (binary `image/jpeg`, not JSON), the
+   * backend-authenticated counterpart of `foto-entrega` for
+   * `reportar-fallida`. Same shape and `null`-on-404 contract as
+   * {@link getDeliveryPhotoUri}.
+   */
+  getFailureReportPhotoUri(shipmentId: ShipmentId): Promise<string | null>;
 }
 
 /** Thrown when there is no session token available to authenticate a request. */
