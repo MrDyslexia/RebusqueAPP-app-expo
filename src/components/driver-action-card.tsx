@@ -1,7 +1,10 @@
 import type { ComponentType } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
+import { List } from 'react-native-paper';
 
 import { theme } from '@/theme';
+import { paperIcon } from '@/utils/paper-icon';
 
 type IconComponent = ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
 
@@ -21,40 +24,32 @@ export function DriverActionCard({
   title,
 }: DriverActionCardProps) {
   return (
-    <Pressable
+    <List.Item
       accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
+      description={description}
+      descriptionStyle={styles.description}
+      left={() => (
+        <View style={styles.iconContainer}>
+          <Icon color={theme.colors.primary} size={23} strokeWidth={2.25} />
+        </View>
+      )}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-      <View style={styles.iconContainer}>
-        <Icon color={theme.colors.primary} size={23} strokeWidth={2.25} />
-      </View>
-      <View style={styles.copy}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.description}>{description}</Text>
-      </View>
-      <Text accessibilityElementsHidden style={styles.arrow}>›</Text>
-    </Pressable>
+      right={() => <List.Icon color={theme.colors.primary} icon={paperIcon(ChevronRight)} />}
+      style={styles.card}
+      title={title}
+      titleStyle={styles.title}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    alignItems: 'center',
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: theme.spacing.md,
     minHeight: 92,
-    padding: theme.spacing.base,
-    ...theme.shadows.card,
-  },
-  cardPressed: {
-    backgroundColor: theme.colors.surfacePressed,
-    borderColor: theme.colors.primary,
-    ...theme.shadows.cardPressed,
+    paddingHorizontal: theme.spacing.base,
   },
   iconContainer: {
     alignItems: 'center',
@@ -63,10 +58,6 @@ const styles = StyleSheet.create({
     height: 46,
     justifyContent: 'center',
     width: 46,
-  },
-  copy: {
-    flex: 1,
-    gap: 4,
   },
   title: {
     color: theme.colors.text.primary,
@@ -77,10 +68,5 @@ const styles = StyleSheet.create({
     color: theme.colors.text.secondary,
     fontSize: 13,
     lineHeight: 18,
-  },
-  arrow: {
-    color: theme.colors.primary,
-    fontSize: 28,
-    fontWeight: '400',
   },
 });

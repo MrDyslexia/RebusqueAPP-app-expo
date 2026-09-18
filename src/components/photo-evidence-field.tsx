@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { Button } from 'react-native-paper';
 
+import { StatusNotice } from '@/components/status-notice';
 import { theme } from '@/theme';
+import { paperIcon } from '@/utils/paper-icon';
 
 const Camera = require('lucide-react-native/dist/cjs/icons/camera.js') as typeof import('lucide-react-native/dist/types/icons/camera').default;
 
@@ -59,12 +62,12 @@ export function PhotoEvidenceField({ onChange, photo, required = false }: PhotoE
         <Image accessibilityLabel="Vista previa de la foto de evidencia local" source={{ uri: photo.uri }} style={styles.preview} />
         <Text style={styles.helper}>Foto adjunta a este formulario. Se enviará junto con la solicitud.</Text>
         <View style={styles.buttonRow}>
-          <Pressable accessibilityRole="button" onPress={() => onChange(null)} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Quitar foto</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setIsCameraOpen(true)} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Volver a tomar foto</Text>
-          </Pressable>
+          <Button mode="outlined" onPress={() => onChange(null)} style={styles.secondaryButton}>
+            Quitar foto
+          </Button>
+          <Button mode="outlined" onPress={() => setIsCameraOpen(true)} style={styles.secondaryButton}>
+            Volver a tomar foto
+          </Button>
         </View>
       </View>
     );
@@ -72,36 +75,36 @@ export function PhotoEvidenceField({ onChange, photo, required = false }: PhotoE
 
   if (!isCameraOpen) {
     return (
-      <Pressable
+      <Button
         accessibilityLabel={required ? 'Tomar la foto de entrega' : 'Agregar una foto de evidencia opcional'}
-        accessibilityRole="button"
+        icon={paperIcon(Camera)}
+        mode="outlined"
         onPress={() => setIsCameraOpen(true)}
-        style={({ pressed }) => [styles.addPhotoButton, pressed && styles.pressed]}>
-        <Camera color={theme.colors.primary} size={20} />
-        <Text style={styles.addPhotoText}>{required ? 'Tomar foto de entrega' : 'Agregar foto opcional'}</Text>
-      </Pressable>
+        style={styles.addPhotoButton}>
+        {required ? 'Tomar foto de entrega' : 'Agregar foto opcional'}
+      </Button>
     );
   }
 
   if (!permission || !permission.granted) {
     return (
       <View style={styles.permissionCard}>
-        <Text style={styles.permissionTitle}>Se requiere permiso de cámara</Text>
-        <Text style={styles.helper}>
-          {required
-            ? 'Se necesita acceso a la cámara para tomar la foto de entrega, obligatoria para confirmar.'
-            : 'Se necesita acceso a la cámara solo para adjuntar una foto de respaldo opcional a este formulario.'}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void requestPermission()}
-          style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Permitir acceso a la cámara</Text>
-        </Pressable>
+        <StatusNotice variant="warning">
+          <Text style={styles.permissionTitle}>Se requiere permiso de cámara</Text>
+          {'\n'}
+          <Text style={styles.permissionText}>
+            {required
+              ? 'Se necesita acceso a la cámara para tomar la foto de entrega, obligatoria para confirmar.'
+              : 'Se necesita acceso a la cámara solo para adjuntar una foto de respaldo opcional a este formulario.'}
+          </Text>
+        </StatusNotice>
+        <Button mode="contained" onPress={() => void requestPermission()} style={styles.primaryButton}>
+          Permitir acceso a la cámara
+        </Button>
         {required ? null : (
-          <Pressable accessibilityRole="button" onPress={() => setIsCameraOpen(false)} style={styles.textButton}>
-            <Text style={styles.textButtonLabel}>Continuar sin foto</Text>
-          </Pressable>
+          <Button mode="text" onPress={() => setIsCameraOpen(false)} style={styles.textButton}>
+            Continuar sin foto
+          </Button>
         )}
       </View>
     );
@@ -118,17 +121,12 @@ export function PhotoEvidenceField({ onChange, photo, required = false }: PhotoE
       />
       {captureError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{captureError}</Text> : null}
       <View style={styles.buttonRow}>
-        <Pressable accessibilityRole="button" onPress={() => setIsCameraOpen(false)} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Cancelar</Text>
-        </Pressable>
-        <Pressable
-          accessibilityState={{ disabled: !isCameraReady }}
-          accessibilityRole="button"
-          disabled={!isCameraReady}
-          onPress={() => void takePhoto()}
-          style={[styles.primaryButton, !isCameraReady && styles.disabledButton]}>
-          <Text style={styles.primaryButtonText}>{isCameraReady ? 'Tomar foto' : 'Iniciando cámara…'}</Text>
-        </Pressable>
+        <Button mode="outlined" onPress={() => setIsCameraOpen(false)} style={styles.secondaryButton}>
+          Cancelar
+        </Button>
+        <Button disabled={!isCameraReady} mode="contained" onPress={() => void takePhoto()} style={styles.primaryButton}>
+          {isCameraReady ? 'Tomar foto' : 'Iniciando cámara…'}
+        </Button>
       </View>
     </View>
   );
@@ -138,23 +136,18 @@ const styles = StyleSheet.create({
   container: { gap: theme.spacing.sm + 2 },
   preview: { borderRadius: theme.radii.lg, height: 180, width: '100%' },
   helper: { color: theme.colors.text.secondary, fontSize: 13, lineHeight: 18 },
-  addPhotoButton: {
-    alignItems: 'center', borderColor: theme.colors.primary, borderRadius: theme.radii.md, borderStyle: 'dashed', borderWidth: 1.5,
-    flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'center', minHeight: 48, paddingHorizontal: theme.spacing.md + 2,
-  },
-  addPhotoText: { color: theme.colors.primary, fontSize: 14, fontWeight: '700' },
-  pressed: { backgroundColor: theme.colors.primarySoft },
-  permissionCard: { backgroundColor: theme.colors.status.warning.background, borderColor: theme.colors.status.warning.border, borderRadius: theme.radii.lg, borderWidth: 1, gap: theme.spacing.sm + 2, padding: theme.spacing.md + 2 },
-  permissionTitle: { color: theme.colors.status.warning.text, fontSize: 15, fontWeight: '700' },
+  // react-native-paper's `Button` has no built-in dashed-border affordance, but its
+  // outer `style` prop is applied directly to the pressable container, so the
+  // project's usual dashed "add evidence" style still renders correctly here.
+  addPhotoButton: { borderColor: theme.colors.primary, borderRadius: theme.radii.md, borderStyle: 'dashed', borderWidth: 1.5 },
+  permissionCard: { gap: theme.spacing.sm + 2 },
+  permissionTitle: { fontSize: 15, fontWeight: '700' },
+  permissionText: { fontSize: 13, lineHeight: 18 },
   cameraCard: { gap: theme.spacing.sm + 2 },
   camera: { borderRadius: theme.radii.lg, height: 260, overflow: 'hidden', width: '100%' },
   buttonRow: { flexDirection: 'row', gap: theme.spacing.sm + 2 },
-  primaryButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.spacing.md },
-  primaryButtonText: { color: theme.colors.text.onPrimary, fontSize: 14, fontWeight: '700' },
-  secondaryButton: { alignItems: 'center', borderColor: theme.colors.primary, borderRadius: theme.radii.pill, borderWidth: 1.5, flex: 1, justifyContent: 'center', minHeight: 44, paddingHorizontal: theme.spacing.md },
-  secondaryButtonText: { color: theme.colors.primary, fontSize: 14, fontWeight: '700' },
-  textButton: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
-  textButtonLabel: { color: theme.colors.primary, fontSize: 14, fontWeight: '700' },
-  disabledButton: { opacity: 0.55 },
+  primaryButton: { borderRadius: theme.radii.pill, flex: 1 },
+  secondaryButton: { borderColor: theme.colors.primary, borderRadius: theme.radii.pill, flex: 1 },
+  textButton: { alignSelf: 'flex-start' },
   error: { color: theme.colors.status.danger.text, fontSize: 13, lineHeight: 18 },
 });

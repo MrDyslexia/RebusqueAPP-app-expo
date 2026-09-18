@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card } from 'react-native-paper';
 
 import { EmptyState } from '@/components/empty-state';
 import { FullScreenImageViewer } from '@/components/full-screen-image-viewer';
@@ -11,6 +12,7 @@ import { apiIdToShipmentId, getQrAction } from '@/domain/shipment';
 import { getConductorApi } from '@/services/get-conductor-api';
 import { useRealtimeShipmentEvents } from '@/hooks/use-realtime-shipment-events';
 import { theme } from '@/theme';
+import { paperIcon } from '@/utils/paper-icon';
 
 const Package = require('lucide-react-native/dist/cjs/icons/package.js') as typeof import('lucide-react-native/dist/types/icons/package').default;
 const ScanLine = require('lucide-react-native/dist/cjs/icons/scan-line.js') as typeof import('lucide-react-native/dist/types/icons/scan-line').default;
@@ -143,33 +145,34 @@ export default function ShipmentDetailScreen() {
 
         <View style={styles.actions}>
           {qrAction ? (
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              icon={paperIcon(ScanLine)}
+              mode="contained"
               onPress={() => router.push({ pathname: '/conductor/scan/[shipmentId]', params: { action: qrAction.action, reference: shipment.reference, shipmentId: id } })}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}>
-              <ScanLine color={theme.colors.text.onPrimary} size={19} />
-              <Text style={styles.primaryButtonText}>{qrAction.label}</Text>
-            </Pressable>
+              style={styles.primaryButton}>
+              {qrAction.label}
+            </Button>
           ) : null}
 
           {shipment.status === 'en_reparto' ? (
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              icon={paperIcon(ScanLine)}
+              mode="contained"
               onPress={() => router.push({ pathname: '/conductor/[shipmentId]/delivery', params: { reference: shipment.reference, shipmentId: id } })}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}>
-              <ScanLine color={theme.colors.text.onPrimary} size={19} />
-              <Text style={styles.primaryButtonText}>Confirmar entrega</Text>
-            </Pressable>
+              style={styles.primaryButton}>
+              Confirmar entrega
+            </Button>
           ) : null}
 
           {shipment.status === 'en_reparto' ? (
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              icon={paperIcon(CircleAlert)}
+              mode="outlined"
               onPress={() => router.push({ pathname: '/conductor/report-failure', params: { reference: shipment.reference, shipmentId: id } })}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}>
-              <CircleAlert color={theme.colors.status.danger.text} size={18} />
-              <Text style={styles.secondaryButtonText}>Reportar falla de entrega</Text>
-            </Pressable>
+              style={styles.secondaryButton}
+              textColor={theme.colors.status.danger.text}>
+              Reportar falla de entrega
+            </Button>
           ) : null}
         </View>
       </ScrollView>
@@ -184,21 +187,23 @@ export default function ShipmentDetailScreen() {
 
 function DeliveryPhotoCard({ onOpenViewer, photo }: { onOpenViewer: () => void; photo: DeliveryPhotoState | null }) {
   return (
-    <View style={styles.photoCard}>
-      <Text style={styles.label}>Foto de entrega</Text>
-      {photo?.status === 'loaded' ? (
-        <Pressable accessibilityLabel="Ver foto de entrega en pantalla completa" accessibilityRole="button" onPress={onOpenViewer}>
-          <Image resizeMode="cover" source={{ uri: photo.uri }} style={styles.photoImage} />
-          <Text style={styles.photoHint}>Toca la foto para verla en pantalla completa</Text>
-        </Pressable>
-      ) : photo?.status === 'unavailable' ? (
-        <Text style={styles.photoMessage}>No se pudo cargar la foto de entrega.</Text>
-      ) : (
-        <View style={styles.photoLoading}>
-          <ActivityIndicator color={theme.colors.primary} />
-        </View>
-      )}
-    </View>
+    <Card style={styles.photoCard}>
+      <Card.Content style={styles.photoCardContent}>
+        <Text style={styles.label}>Foto de entrega</Text>
+        {photo?.status === 'loaded' ? (
+          <Pressable accessibilityLabel="Ver foto de entrega en pantalla completa" accessibilityRole="button" onPress={onOpenViewer}>
+            <Image resizeMode="cover" source={{ uri: photo.uri }} style={styles.photoImage} />
+            <Text style={styles.photoHint}>Toca la foto para verla en pantalla completa</Text>
+          </Pressable>
+        ) : photo?.status === 'unavailable' ? (
+          <Text style={styles.photoMessage}>No se pudo cargar la foto de entrega.</Text>
+        ) : (
+          <View style={styles.photoLoading}>
+            <ActivityIndicator color={theme.colors.primary} />
+          </View>
+        )}
+      </Card.Content>
+    </Card>
   );
 }
 
@@ -223,24 +228,13 @@ const styles = StyleSheet.create({
   infoRow: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.lg, borderWidth: 1, gap: 4, padding: theme.spacing.base - 2 },
   label: { color: theme.colors.text.secondary, fontSize: 13, fontWeight: '700' },
   value: { color: theme.colors.text.primary, fontSize: 16 },
-  photoCard: {
-    ...theme.shadows.card,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    borderWidth: 1,
-    gap: theme.spacing.sm,
-    padding: theme.spacing.base - 2,
-  },
+  photoCard: { borderRadius: theme.radii.xl },
+  photoCardContent: { gap: theme.spacing.sm },
   photoImage: { borderRadius: theme.radii.lg, height: 220, width: '100%' },
   photoLoading: { alignItems: 'center', height: 220, justifyContent: 'center' },
   photoMessage: { color: theme.colors.text.secondary, fontSize: 14 },
   photoHint: { color: theme.colors.text.muted, fontSize: 12, marginTop: theme.spacing.xs, textAlign: 'center' },
   actions: { gap: theme.spacing.sm + 2, marginTop: 2 },
-  primaryButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'center', minHeight: 50, paddingHorizontal: theme.spacing.base },
-  primaryButtonPressed: { backgroundColor: theme.colors.primaryPressed },
-  primaryButtonText: { ...theme.typography.buttonLabel, color: theme.colors.text.onPrimary, fontSize: 15 },
-  secondaryButton: { alignItems: 'center', backgroundColor: theme.colors.surface, borderColor: theme.colors.status.danger.border, borderRadius: theme.radii.pill, borderWidth: 1, flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'center', minHeight: 50, paddingHorizontal: theme.spacing.base },
-  secondaryButtonPressed: { backgroundColor: theme.colors.status.danger.background },
-  secondaryButtonText: { color: theme.colors.status.danger.text, fontSize: 15, fontWeight: '800' },
+  primaryButton: { borderRadius: theme.radii.pill },
+  secondaryButton: { borderColor: theme.colors.status.danger.border, borderRadius: theme.radii.pill },
 });

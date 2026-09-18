@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Avatar, Surface } from 'react-native-paper';
 
 import { theme } from '@/theme';
 
@@ -12,12 +13,12 @@ interface EmptyStateProps {
 
 export function EmptyState({ action, description, icon, title }: EmptyStateProps) {
   return (
-    <View style={styles.container}>
-      <View style={styles.iconContainer}>{icon}</View>
+    <Surface elevation={2} style={styles.container}>
+      <Avatar.Icon icon={() => icon} size={48} style={styles.iconContainer} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
       {action ? <View style={styles.action}>{action}</View> : null}
-    </View>
+    </Surface>
   );
 }
 
@@ -30,15 +31,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: theme.spacing.sm + 2,
     padding: theme.spacing.xl,
-    ...theme.shadows.card,
   },
   iconContainer: {
-    alignItems: 'center',
     backgroundColor: theme.colors.primarySoft,
-    borderRadius: theme.radii.pill,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
   },
   title: {
     color: theme.colors.text.primary,

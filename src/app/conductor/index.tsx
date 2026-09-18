@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from 'react-native-paper';
 
 import { DriverActionCard } from '@/components/driver-action-card';
 import { RealtimeConnectionStatus } from '@/components/realtime-connection-status';
@@ -114,15 +115,15 @@ export default function ConductorHomeScreen() {
 
         {appConfig.fixturesEnabled ? <Text style={styles.fixtureNote}>Los datos de prueba de desarrollo están habilitados en este dispositivo.</Text> : null}
 
-        <Pressable
-          accessibilityLabel="Cerrar sesión"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isSigningOut }}
+        <Button
           disabled={isSigningOut}
+          loading={isSigningOut}
+          mode="outlined"
           onPress={() => void signOut()}
-          style={({ pressed }) => [styles.signOutButton, pressed && styles.signOutButtonPressed]}>
-          <Text style={styles.signOutButtonText}>{isSigningOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</Text>
-        </Pressable>
+          style={styles.signOutButton}
+          textColor={theme.colors.text.secondary}>
+          {isSigningOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+        </Button>
       </ScrollView>
     </SafeAreaView>
   );
@@ -148,7 +149,5 @@ const styles = StyleSheet.create({
   section: { gap: theme.spacing.md - 2 },
   sectionTitle: { ...theme.typography.sectionTitle, marginBottom: 2 },
   fixtureNote: { color: theme.colors.text.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  signOutButton: { alignItems: 'center', borderColor: theme.colors.border, borderRadius: theme.radii.pill, borderWidth: 1.5, marginTop: 2, minHeight: 46, justifyContent: 'center', paddingHorizontal: theme.spacing.base },
-  signOutButtonPressed: { backgroundColor: theme.colors.surfacePressed },
-  signOutButtonText: { color: theme.colors.text.secondary, fontSize: 14, fontWeight: '800' },
+  signOutButton: { borderColor: theme.colors.border, borderRadius: theme.radii.pill, borderWidth: 1.5, marginTop: 2 },
 });

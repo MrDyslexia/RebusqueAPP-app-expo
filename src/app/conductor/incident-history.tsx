@@ -53,7 +53,6 @@ export default function IncidentHistoryScreen() {
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Historial de incidentes</Text>
           <Text style={styles.caption}>
             Esta vista solo cubre las encomiendas asignadas actualmente a tu conductor; no existe todavía un historial de
             incidentes independiente en el backend.
@@ -96,7 +95,6 @@ const styles = StyleSheet.create({
   safeArea: { backgroundColor: theme.colors.background, flex: 1 },
   content: { gap: theme.spacing.md, padding: theme.spacing.lg },
   header: { gap: theme.spacing.xs + 1, marginBottom: 2 },
-  title: { color: theme.colors.text.primary, fontSize: 26, fontWeight: '800' },
   caption: { ...theme.typography.caption, fontSize: 14, lineHeight: 20 },
   loading: { alignItems: 'center', minHeight: 220, justifyContent: 'center' },
   card: {

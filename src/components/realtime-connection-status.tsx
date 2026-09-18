@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
+import { StatusNotice } from '@/components/status-notice';
 import type {
   RealtimeConnectionState,
   RealtimeEventObservation,
@@ -31,9 +32,11 @@ export function RealtimeConnectionStatus({
   latestEvent,
 }: RealtimeConnectionStatusProps) {
   return (
-    <View style={styles.container}>
+    <StatusNotice variant="info">
       <Text style={styles.title}>Actualizaciones en vivo</Text>
+      {'\n'}
       <Text style={styles.message}>{getStatusText(connection)}</Text>
+      {'\n'}
       {latestEvent ? (
         <Text style={styles.observation}>
           Último evento recibido a las {new Date(latestEvent.receivedAt).toLocaleTimeString()}.
@@ -41,26 +44,16 @@ export function RealtimeConnectionStatus({
       ) : (
         <Text style={styles.observation}>Aún no se ha recibido ningún evento en vivo.</Text>
       )}
-    </View>
+    </StatusNotice>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: theme.colors.status.info.background,
-    borderColor: theme.colors.status.info.border,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    gap: theme.spacing.xs + 2,
-    padding: theme.spacing.md + 2,
-  },
   title: {
-    color: theme.colors.status.info.text,
     fontSize: 15,
     fontWeight: '700',
   },
   message: {
-    color: theme.colors.status.info.text,
     fontSize: 14,
     lineHeight: 20,
   },

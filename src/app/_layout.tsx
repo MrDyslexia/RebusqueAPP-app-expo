@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { PaperProvider } from 'react-native-paper';
+
+import { paperTheme } from '@/theme/paper-theme';
 
 export default function RootLayout() {
   return (
-    <>
+    <PaperProvider theme={paperTheme}>
       <StatusBar style="dark" />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -16,6 +19,6 @@ export default function RootLayout() {
         <Stack.Screen name="conductor/report-failure" options={{ title: 'Reportar falla de entrega' }} />
         <Stack.Screen name="conductor/incident-history" options={{ title: 'Historial de incidentes' }} />
       </Stack>
-    </>
+    </PaperProvider>
   );
 }

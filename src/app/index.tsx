@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card, HelperText, TextInput } from 'react-native-paper';
 
 import { appConfig } from '@/config/app-config';
 import { signIn } from '@/services/auth-session';
 import { saveSessionToken } from '@/services/session-token-store';
 import { theme } from '@/theme';
+import { paperIcon } from '@/utils/paper-icon';
 import { formatChileanRutInput, validateChileanRut } from '@/utils/chilean-rut';
 
 const Eye = require('lucide-react-native/dist/cjs/icons/eye.js') as typeof import('lucide-react-native/dist/types/icons/eye').default;
@@ -77,91 +79,93 @@ export default function LoginScreen() {
         </Text>
 
         {appConfig.fixturesEnabled ? (
-          <View style={styles.fixtureForm}>
-            <Text style={styles.fixtureTitle}>Inicio de sesión de prueba (desarrollo)</Text>
-            <Text style={styles.fixtureText}>
-              Esta no es una cuenta de producción. Usa las credenciales ficticias a continuación para abrir encomiendas de prueba locales.
-            </Text>
-            <Text style={styles.credentialHint}>RUT: {fixtureCredentials.rut}</Text>
-            <Text style={styles.credentialHint}>Contraseña: {fixtureCredentials.password}</Text>
-            <TextInput
-              accessibilityLabel="RUT de prueba"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setRut}
-              placeholder="RUT de prueba"
-              style={styles.input}
-              value={rut}
-            />
-            <TextInput
-              accessibilityLabel="Contraseña de prueba"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setPassword}
-              placeholder="Contraseña de prueba"
-              secureTextEntry
-              style={styles.input}
-              value={password}
-            />
-            {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-            <Pressable
-              accessibilityState={{ disabled: isSubmitting }}
-              disabled={isSubmitting}
-              style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
-              onPress={() => void signInToWorkspace()}>
-              <Text style={styles.primaryButtonText}>Abrir espacio de trabajo de prueba</Text>
-            </Pressable>
-          </View>
+          <Card style={styles.fixtureForm}>
+            <Card.Content style={styles.cardContent}>
+              <Text style={styles.fixtureTitle}>Inicio de sesión de prueba (desarrollo)</Text>
+              <Text style={styles.fixtureText}>
+                Esta no es una cuenta de producción. Usa las credenciales ficticias a continuación para abrir encomiendas de prueba locales.
+              </Text>
+              <Text style={styles.credentialHint}>RUT: {fixtureCredentials.rut}</Text>
+              <Text style={styles.credentialHint}>Contraseña: {fixtureCredentials.password}</Text>
+              <TextInput
+                accessibilityLabel="RUT de prueba"
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                onChangeText={setRut}
+                placeholder="RUT de prueba"
+                value={rut}
+              />
+              <TextInput
+                accessibilityLabel="Contraseña de prueba"
+                autoCapitalize="none"
+                autoCorrect={false}
+                mode="outlined"
+                onChangeText={setPassword}
+                placeholder="Contraseña de prueba"
+                secureTextEntry
+                value={password}
+              />
+              <HelperText type="error" visible={Boolean(loginError)}>
+                {loginError}
+              </HelperText>
+              <Button
+                disabled={isSubmitting}
+                loading={isSubmitting}
+                mode="contained"
+                onPress={() => void signInToWorkspace()}
+                style={styles.primaryButton}>
+                Abrir espacio de trabajo de prueba
+              </Button>
+            </Card.Content>
+          </Card>
         ) : (
-          <View style={styles.loginForm}>
-            <TextInput
-              accessibilityLabel="RUT"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              editable={!isSubmitting}
-              keyboardType="default"
-              maxLength={12}
-              onChangeText={handleRutChange}
-              placeholder="12.345.678-5"
-              style={styles.input}
-              value={rut}
-            />
-            <View style={styles.passwordField}>
+          <Card style={styles.loginForm}>
+            <Card.Content style={styles.cardContent}>
+              <TextInput
+                accessibilityLabel="RUT"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                disabled={isSubmitting}
+                keyboardType="default"
+                maxLength={12}
+                mode="outlined"
+                onChangeText={handleRutChange}
+                placeholder="12.345.678-5"
+                value={rut}
+              />
               <TextInput
                 accessibilityLabel="Contraseña"
                 autoCapitalize="none"
                 autoCorrect={false}
-                editable={!isSubmitting}
+                disabled={isSubmitting}
                 maxLength={12}
+                mode="outlined"
                 onChangeText={setPassword}
                 placeholder="Contraseña"
+                right={(
+                  <TextInput.Icon
+                    accessibilityLabel={isPasswordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    icon={paperIcon(isPasswordVisible ? EyeOff : Eye)}
+                    onPress={() => setIsPasswordVisible((visible) => !visible)}
+                  />
+                )}
                 secureTextEntry={!isPasswordVisible}
-                style={[styles.input, styles.passwordInput]}
                 value={password}
               />
-              <Pressable
-                accessibilityLabel={isPasswordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: isSubmitting, selected: isPasswordVisible }}
+              <HelperText type="error" visible={Boolean(loginError)}>
+                {loginError}
+              </HelperText>
+              <Button
                 disabled={isSubmitting}
-                onPress={() => setIsPasswordVisible((visible) => !visible)}
-                style={({ pressed }) => [styles.passwordToggle, pressed && styles.passwordTogglePressed]}>
-                {isPasswordVisible ? (
-                  <EyeOff color={theme.colors.primary} size={24} />
-                ) : (
-                  <Eye color={theme.colors.primary} size={24} />
-                )}
-              </Pressable>
-            </View>
-            {loginError ? <Text style={styles.errorText}>{loginError}</Text> : null}
-            <Pressable
-              accessibilityState={{ disabled: isSubmitting }}
-              disabled={isSubmitting}
-              style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
-              onPress={() => void signInToWorkspace()}>
-              <Text style={styles.primaryButtonText}>{isSubmitting ? 'Iniciando sesión…' : 'Iniciar sesión'}</Text>
-            </Pressable>
-          </View>
+                loading={isSubmitting}
+                mode="contained"
+                onPress={() => void signInToWorkspace()}
+                style={styles.primaryButton}>
+                {isSubmitting ? 'Iniciando sesión…' : 'Iniciar sesión'}
+              </Button>
+            </Card.Content>
+          </Card>
         )}
 
         <Text style={styles.footer}>
@@ -199,20 +203,17 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.status.info.border,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
-    gap: theme.spacing.sm,
     marginTop: theme.spacing.base,
-    padding: theme.spacing.base,
   },
   loginForm: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.lg,
     borderWidth: 1,
-    gap: theme.spacing.sm,
     marginTop: theme.spacing.base,
-    padding: theme.spacing.base,
     ...theme.shadows.card,
   },
+  cardContent: { gap: theme.spacing.sm },
   fixtureTitle: {
     color: theme.colors.status.info.text,
     fontSize: 16,
@@ -228,52 +229,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  input: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    color: theme.colors.text.primary,
-    fontSize: 15,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 10,
-  },
-  passwordField: {
-    position: 'relative',
-  },
-  passwordInput: {
-    paddingRight: 80,
-  },
-  passwordToggle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
-  passwordTogglePressed: {
-    opacity: 0.65,
-  },
-  errorText: {
-    color: theme.colors.status.danger.text,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   primaryButton: {
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary,
     borderRadius: theme.radii.pill,
-    paddingHorizontal: theme.spacing.base,
-    paddingVertical: 14,
-  },
-  primaryButtonText: {
-    ...theme.typography.buttonLabel,
-    color: theme.colors.text.onPrimary,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.65,
+    marginTop: theme.spacing.xs,
   },
   footer: {
     color: theme.colors.text.muted,

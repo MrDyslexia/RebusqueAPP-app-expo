@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Chip } from 'react-native-paper';
 
 import type { ShipmentStatus } from '@/domain/shipment';
 import { theme } from '@/theme';
@@ -29,19 +30,28 @@ const statusStyles: Record<ShipmentStatus, { backgroundColor: string; color: str
 
 export function ShipmentStatusChip({ status }: { status?: ShipmentStatus }) {
   if (!status) {
+    const neutral = theme.colors.status.neutral;
     return (
-      <View style={[styles.chip, styles.unknownChip]}>
-        <Text style={[styles.label, styles.unknownLabel]}>Estado pendiente de sincronización</Text>
-      </View>
+      <Chip
+        compact
+        mode="flat"
+        style={[styles.chip, { backgroundColor: neutral.background }]}
+        textStyle={[styles.label, { color: neutral.text }]}>
+        Estado pendiente de sincronización
+      </Chip>
     );
   }
 
   const palette = statusStyles[status];
 
   return (
-    <View style={[styles.chip, { backgroundColor: palette.backgroundColor }]}>
-      <Text style={[styles.label, { color: palette.color }]}>{statusLabels[status]}</Text>
-    </View>
+    <Chip
+      compact
+      mode="flat"
+      style={[styles.chip, { backgroundColor: palette.backgroundColor }]}
+      textStyle={[styles.label, { color: palette.color }]}>
+      {statusLabels[status]}
+    </Chip>
   );
 }
 
@@ -49,17 +59,9 @@ const styles = StyleSheet.create({
   chip: {
     alignSelf: 'flex-start',
     borderRadius: theme.radii.pill,
-    paddingHorizontal: theme.spacing.sm + 2,
-    paddingVertical: 5,
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
-  },
-  unknownChip: {
-    backgroundColor: theme.colors.status.neutral.background,
-  },
-  unknownLabel: {
-    color: theme.colors.status.neutral.text,
   },
 });

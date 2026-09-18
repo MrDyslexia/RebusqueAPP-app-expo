@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Button, Card } from 'react-native-paper';
 
 import type { ShipmentId } from '@/domain/shipment';
 import { theme } from '@/theme';
@@ -68,9 +69,9 @@ export function QrScanner({ action, onConfirm, shipmentId, shipmentLabel }: QrSc
       <View style={styles.messageContainer}>
         <Text style={styles.permissionTitle}>Se requiere permiso de cámara</Text>
         <Text style={styles.message}>Se requiere acceso a la cámara para escanear el código QR de una encomienda.</Text>
-        <Pressable accessibilityRole="button" onPress={() => void requestPermission()} style={styles.permissionButton}>
-          <Text style={styles.permissionButtonText}>Permitir acceso a la cámara</Text>
-        </Pressable>
+        <Button mode="contained" onPress={() => void requestPermission()} style={styles.permissionButton}>
+          Permitir acceso a la cámara
+        </Button>
       </View>
     );
   }
@@ -111,33 +112,26 @@ export function QrScanner({ action, onConfirm, shipmentId, shipmentLabel }: QrSc
         {shipmentId ? <Text style={styles.context}>Encomienda seleccionada: {shipmentLabel ?? shipmentId}</Text> : null}
         {cameraError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{cameraError}</Text> : null}
         {capturedValue ? (
-          <View accessibilityLiveRegion="polite" style={styles.result}>
-            <Text style={styles.resultTitle}>Escaneo capturado localmente</Text>
-            <Text numberOfLines={2} style={styles.resultValue}>{capturedValue}</Text>
-            {submitError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{submitError}</Text> : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isSubmitting }}
-              disabled={isSubmitting}
-              onPress={resetCapture}
-              style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>Escanear otro código</Text>
-            </Pressable>
-            {onConfirm ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ disabled: isSubmitting }}
-                disabled={isSubmitting}
-                onPress={() => void handleConfirm()}
-                style={[styles.continueButton, isSubmitting && styles.disabledButton]}>
-                {isSubmitting ? (
-                  <ActivityIndicator color={theme.colors.text.onPrimary} size="small" />
-                ) : (
-                  <Text style={styles.continueButtonText}>{copy.confirmLabel}</Text>
-                )}
-              </Pressable>
-            ) : null}
-          </View>
+          <Card accessibilityLiveRegion="polite" style={styles.result}>
+            <Card.Content style={styles.resultContent}>
+              <Text style={styles.resultTitle}>Escaneo capturado localmente</Text>
+              <Text numberOfLines={2} style={styles.resultValue}>{capturedValue}</Text>
+              {submitError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{submitError}</Text> : null}
+              <Button disabled={isSubmitting} mode="outlined" onPress={resetCapture} style={styles.secondaryButton}>
+                Escanear otro código
+              </Button>
+              {onConfirm ? (
+                <Button
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                  mode="contained"
+                  onPress={() => void handleConfirm()}
+                  style={styles.continueButton}>
+                  {copy.confirmLabel}
+                </Button>
+              ) : null}
+            </Card.Content>
+          </Card>
         ) : (
           <Text style={styles.helpText}>{copy.help}</Text>
         )}
@@ -152,8 +146,7 @@ const styles = StyleSheet.create({
   messageContainer: { alignItems: 'center', backgroundColor: theme.colors.background, flex: 1, gap: theme.spacing.md + 2, justifyContent: 'center', padding: theme.spacing.xl },
   permissionTitle: { ...theme.typography.sectionTitle, textAlign: 'center' },
   message: { ...theme.typography.subtitle, fontSize: 15, textAlign: 'center' },
-  permissionButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, minHeight: 46, justifyContent: 'center', paddingHorizontal: theme.spacing.base },
-  permissionButtonText: { ...theme.typography.buttonLabel, color: theme.colors.text.onPrimary, fontSize: 15 },
+  permissionButton: { borderRadius: theme.radii.pill, marginTop: theme.spacing.xs },
   overlay: { backgroundColor: theme.colors.overlay.scannerBackdrop, gap: theme.spacing.sm + 2, padding: theme.spacing.xl },
   heading: { ...theme.typography.sectionTitle, color: theme.colors.text.onSecondary, textAlign: 'center' },
   context: { color: theme.colors.text.onDark, fontSize: 13, textAlign: 'center' },
@@ -163,17 +156,12 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md + 2,
     ...theme.shadows.card,
   },
+  resultContent: { gap: theme.spacing.sm, padding: theme.spacing.md + 2 },
   resultTitle: { color: theme.colors.secondary, fontSize: 16, fontWeight: '800' },
   resultValue: { color: theme.colors.text.secondary, fontSize: 13, lineHeight: 18 },
-  resultText: { color: theme.colors.text.secondary, fontSize: 14, lineHeight: 20 },
-  secondaryButton: { alignItems: 'center', borderColor: theme.colors.primary, borderRadius: theme.radii.pill, borderWidth: 1.5, marginTop: 4, minHeight: 42, justifyContent: 'center', paddingHorizontal: theme.spacing.md },
-  secondaryButtonText: { color: theme.colors.primary, fontSize: 14, fontWeight: '800' },
-  continueButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, minHeight: 42, justifyContent: 'center', paddingHorizontal: theme.spacing.md },
-  continueButtonText: { ...theme.typography.buttonLabel, color: theme.colors.text.onPrimary, fontSize: 14 },
-  disabledButton: { opacity: 0.65 },
+  secondaryButton: { borderColor: theme.colors.primary, borderRadius: theme.radii.pill, marginTop: 4 },
+  continueButton: { borderRadius: theme.radii.pill },
   error: { color: theme.colors.status.danger.border, fontSize: 13, lineHeight: 18, textAlign: 'center' },
 });

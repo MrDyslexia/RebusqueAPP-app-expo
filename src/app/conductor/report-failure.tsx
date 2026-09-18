@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card, TextInput } from 'react-native-paper';
 
 import { PhotoEvidenceField, type CapturedPhoto } from '@/components/photo-evidence-field';
+import { StatusNotice } from '@/components/status-notice';
 import type { ShipmentId } from '@/domain/shipment';
 import { getConductorApi } from '@/services/get-conductor-api';
 import { theme } from '@/theme';
@@ -64,65 +66,65 @@ export default function ReportFailureScreen() {
         </Text>
         {id ? <Text style={styles.context}>Encomienda seleccionada: {label}</Text> : <Text style={styles.context}>No hay ninguna encomienda seleccionada. Abre esta pantalla desde el detalle de una encomienda.</Text>}
 
-        <View style={styles.formCard}>
-          <Text style={styles.label}>Motivo de la falla de entrega</Text>
-          <TextInput
-            accessibilityLabel="Motivo de la falla de entrega"
-            accessibilityHint={reasonError ?? 'Obligatorio antes de poder enviar el reporte.'}
-            editable={!isSubmitting && !result}
-            multiline
-            onChangeText={(value) => {
-              setReason(value);
-              if (reasonError) {
-                setReasonError(null);
-              }
-            }}
-            placeholder="Describe el motivo de la falla de entrega"
-            style={[styles.input, reasonError && styles.inputError]}
-            textAlignVertical="top"
-            value={reason}
-          />
-          {reasonError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{reasonError}</Text> : null}
+        <Card style={styles.formCard}>
+          <Card.Content style={styles.formCardContent}>
+            <Text style={styles.label}>Motivo de la falla de entrega</Text>
+            <TextInput
+              accessibilityLabel="Motivo de la falla de entrega"
+              accessibilityHint={reasonError ?? 'Obligatorio antes de poder enviar el reporte.'}
+              editable={!isSubmitting && !result}
+              error={Boolean(reasonError)}
+              mode="outlined"
+              multiline
+              onChangeText={(value) => {
+                setReason(value);
+                if (reasonError) {
+                  setReasonError(null);
+                }
+              }}
+              placeholder="Describe el motivo de la falla de entrega"
+              style={styles.input}
+              value={reason}
+            />
+            {reasonError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{reasonError}</Text> : null}
 
-          <Text style={styles.label}>Foto de evidencia</Text>
-          <PhotoEvidenceField onChange={setPhoto} photo={photo} />
+            <Text style={styles.label}>Foto de evidencia</Text>
+            <PhotoEvidenceField onChange={setPhoto} photo={photo} />
 
-          {submitError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{submitError}</Text> : null}
+            {submitError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{submitError}</Text> : null}
 
-          {result ? null : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isSubmitting }}
-              disabled={isSubmitting}
-              onPress={() => void submitReport()}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed, isSubmitting && styles.disabledButton]}>
-              {isSubmitting ? (
-                <ActivityIndicator color={theme.colors.text.onPrimary} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Enviar reporte</Text>
-              )}
-            </Pressable>
-          )}
+            {result ? null : (
+              <Button
+                disabled={isSubmitting}
+                loading={isSubmitting}
+                mode="contained"
+                onPress={() => void submitReport()}
+                style={styles.primaryButton}>
+                Enviar reporte
+              </Button>
+            )}
 
-          {result ? (
-            <View accessibilityLiveRegion="polite" style={result.reachedMaxAttempts ? styles.maxAttemptsNotice : styles.successNotice}>
-              <Text style={result.reachedMaxAttempts ? styles.maxAttemptsTitle : styles.successTitle}>
-                {result.reachedMaxAttempts ? 'Se alcanzó el máximo de intentos' : 'Reporte enviado'}
-              </Text>
-              <Text style={result.reachedMaxAttempts ? styles.maxAttemptsText : styles.successText}>
-                {result.reachedMaxAttempts
-                  ? 'La encomienda alcanzó 3 intentos fallidos de entrega y quedó finalizada. Un ejecutivo o administrador debe gestionar los próximos pasos.'
-                  : 'El reporte de falla de entrega se registró en el servidor.'}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => id && router.replace({ pathname: '/conductor/[shipmentId]', params: { shipmentId: id } })}
-                style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Volver al detalle de la encomienda</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
+            {result ? (
+              <View accessibilityLiveRegion="polite" style={styles.resultNotice}>
+                <StatusNotice variant={result.reachedMaxAttempts ? 'warning' : 'success'}>
+                  <Text style={styles.resultTitle}>
+                    {result.reachedMaxAttempts ? 'Se alcanzó el máximo de intentos' : 'Reporte enviado'}
+                  </Text>
+                  {'\n'}
+                  {result.reachedMaxAttempts
+                    ? 'La encomienda alcanzó 3 intentos fallidos de entrega y quedó finalizada. Un ejecutivo o administrador debe gestionar los próximos pasos.'
+                    : 'El reporte de falla de entrega se registró en el servidor.'}
+                </StatusNotice>
+                <Button
+                  mode="text"
+                  onPress={() => id && router.replace({ pathname: '/conductor/[shipmentId]', params: { shipmentId: id } })}
+                  style={styles.linkButton}>
+                  Volver al detalle de la encomienda
+                </Button>
+              </View>
+            ) : null}
+          </Card.Content>
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -134,21 +136,13 @@ const styles = StyleSheet.create({
   title: { ...theme.typography.title },
   description: { ...theme.typography.subtitle, fontSize: 15 },
   context: { ...theme.typography.caption },
-  formCard: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.xl, borderWidth: 1, gap: theme.spacing.sm + 2, padding: theme.spacing.base, ...theme.shadows.card },
+  formCard: { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderRadius: theme.radii.xl, borderWidth: 1, ...theme.shadows.card },
+  formCardContent: { gap: theme.spacing.sm + 2 },
   label: { color: theme.colors.text.primary, fontSize: 14, fontWeight: '800', marginTop: 4 },
-  input: { borderColor: theme.colors.borderStrong, borderRadius: theme.radii.md, borderWidth: 1, color: theme.colors.text.primary, fontSize: 15, minHeight: 120, padding: theme.spacing.md },
-  inputError: { borderColor: theme.colors.status.danger.text },
+  input: { minHeight: 120 },
   error: { color: theme.colors.status.danger.text, fontSize: 13, lineHeight: 18 },
-  primaryButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, minHeight: 48, justifyContent: 'center', marginTop: 4, paddingHorizontal: theme.spacing.base },
-  primaryButtonPressed: { backgroundColor: theme.colors.primaryPressed },
-  primaryButtonText: { ...theme.typography.buttonLabel, color: theme.colors.text.onPrimary, fontSize: 15 },
-  disabledButton: { opacity: 0.65 },
-  successNotice: { backgroundColor: theme.colors.status.success.background, borderColor: theme.colors.status.success.border, borderRadius: theme.radii.md, borderWidth: 1, gap: 5, marginTop: 2, padding: theme.spacing.md },
-  successTitle: { color: theme.colors.status.success.text, fontSize: 14, fontWeight: '800' },
-  successText: { color: theme.colors.status.success.text, fontSize: 13, lineHeight: 18 },
-  maxAttemptsNotice: { backgroundColor: theme.colors.status.warning.background, borderColor: theme.colors.status.warning.border, borderRadius: theme.radii.md, borderWidth: 1, gap: 5, marginTop: 2, padding: theme.spacing.md },
-  maxAttemptsTitle: { color: theme.colors.status.warning.text, fontSize: 14, fontWeight: '800' },
-  maxAttemptsText: { color: theme.colors.status.warning.text, fontSize: 13, lineHeight: 18 },
-  linkButton: { alignSelf: 'flex-start', marginTop: 4, minHeight: 36, justifyContent: 'center' },
-  linkButtonText: { color: theme.colors.primary, fontSize: 13, fontWeight: '800' },
+  primaryButton: { borderRadius: theme.radii.pill, marginTop: 4 },
+  resultNotice: { gap: theme.spacing.xs, marginTop: 2 },
+  resultTitle: { fontSize: 14, fontWeight: '800' },
+  linkButton: { alignSelf: 'flex-start', marginTop: 4 },
 });

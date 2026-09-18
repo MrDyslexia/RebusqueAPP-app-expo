@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Card, IconButton } from 'react-native-paper';
 
 import { ShipmentStatusChip } from '@/components/shipment-status-chip';
 import type { AssignedShipment } from '@/domain/shipment';
 import { getQrAction } from '@/domain/shipment';
 import { theme } from '@/theme';
+import { paperIcon } from '@/utils/paper-icon';
 
 const X = require('lucide-react-native/dist/cjs/icons/x.js') as typeof import('lucide-react-native/dist/types/icons/x').default;
 const CircleAlert = require('lucide-react-native/dist/cjs/icons/circle-alert.js') as typeof import('lucide-react-native/dist/types/icons/circle-alert').default;
@@ -62,47 +64,53 @@ export function QrResolvedShipmentPanel({ shipment, onClose, onConfirmAction, on
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.content}>
-        <View style={styles.panel}>
-          <Pressable accessibilityLabel="Cerrar" accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
-            <X color={theme.colors.text.secondary} size={22} />
-          </Pressable>
+        <Card style={styles.panel}>
+          <Card.Content style={styles.panelContent}>
+            <IconButton
+              accessibilityLabel="Cerrar"
+              icon={paperIcon(X)}
+              onPress={onClose}
+              size={22}
+              style={styles.closeButton}
+            />
 
-          <View style={styles.header}>
-            <Text style={styles.reference}>{shipment.reference}</Text>
-            <ShipmentStatusChip status={shipment.status} />
-          </View>
-          <Text style={styles.recipient}>{shipment.recipientName}</Text>
-
-          {error ? (
-            <View accessibilityLiveRegion="polite" style={styles.errorNotice}>
-              <Text style={styles.errorText}>{error}</Text>
+            <View style={styles.header}>
+              <Text style={styles.reference}>{shipment.reference}</Text>
+              <ShipmentStatusChip status={shipment.status} />
             </View>
-          ) : null}
+            <Text style={styles.recipient}>{shipment.recipientName}</Text>
 
-          {isDelivery ? (
-            <Pressable accessibilityRole="button" onPress={onGoToDelivery} style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}>
-              <Text style={styles.primaryButtonText}>Confirmar entrega</Text>
-            </Pressable>
-          ) : actionLabel ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isSubmitting }}
-              disabled={isSubmitting}
-              onPress={() => void handleConfirmAction()}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed, isSubmitting && styles.disabledButton]}>
-              {isSubmitting ? <ActivityIndicator color={theme.colors.text.onPrimary} size="small" /> : <Text style={styles.primaryButtonText}>{actionLabel}</Text>}
-            </Pressable>
-          ) : (
-            <Text style={styles.noActionText}>No hay ninguna acción disponible para esta encomienda en este momento.</Text>
-          )}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {isDelivery ? (
-            <Pressable accessibilityRole="button" onPress={onReportFailure} style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}>
-              <CircleAlert color={theme.colors.status.danger.text} size={18} />
-              <Text style={styles.secondaryButtonText}>Reportar falla de entrega</Text>
-            </Pressable>
-          ) : null}
-        </View>
+            {isDelivery ? (
+              <Button mode="contained" onPress={onGoToDelivery} style={styles.primaryButton}>
+                Confirmar entrega
+              </Button>
+            ) : actionLabel ? (
+              <Button
+                disabled={isSubmitting}
+                loading={isSubmitting}
+                mode="contained"
+                onPress={() => void handleConfirmAction()}
+                style={styles.primaryButton}>
+                {actionLabel}
+              </Button>
+            ) : (
+              <Text style={styles.noActionText}>No hay ninguna acción disponible para esta encomienda en este momento.</Text>
+            )}
+
+            {isDelivery ? (
+              <Button
+                icon={paperIcon(CircleAlert)}
+                mode="outlined"
+                onPress={onReportFailure}
+                style={styles.secondaryButton}
+                textColor={theme.colors.status.danger.text}>
+                Reportar falla de entrega
+              </Button>
+            ) : null}
+          </Card.Content>
+        </Card>
       </View>
     </SafeAreaView>
   );
@@ -116,22 +124,15 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xl,
     borderWidth: 1,
-    gap: theme.spacing.md,
-    padding: theme.spacing.lg,
     ...theme.shadows.card,
   },
-  closeButton: { alignItems: 'center', alignSelf: 'flex-end', height: 32, justifyContent: 'center', marginBottom: -theme.spacing.sm, width: 32 },
+  panelContent: { gap: theme.spacing.md },
+  closeButton: { alignSelf: 'flex-end', marginBottom: -theme.spacing.sm, marginRight: -theme.spacing.sm, marginTop: -theme.spacing.sm },
   header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   reference: { color: theme.colors.secondary, fontSize: 14, fontWeight: '800' },
   recipient: { ...theme.typography.title, fontSize: 20 },
   noActionText: { color: theme.colors.text.secondary, fontSize: 14, lineHeight: 20 },
-  primaryButton: { alignItems: 'center', backgroundColor: theme.colors.primary, borderRadius: theme.radii.pill, flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'center', minHeight: 50, paddingHorizontal: theme.spacing.base },
-  primaryButtonPressed: { backgroundColor: theme.colors.primaryPressed },
-  primaryButtonText: { ...theme.typography.buttonLabel, color: theme.colors.text.onPrimary, fontSize: 15 },
-  disabledButton: { opacity: 0.65 },
-  secondaryButton: { alignItems: 'center', backgroundColor: theme.colors.surface, borderColor: theme.colors.status.danger.border, borderRadius: theme.radii.pill, borderWidth: 1, flexDirection: 'row', gap: theme.spacing.sm, justifyContent: 'center', minHeight: 50, paddingHorizontal: theme.spacing.base },
-  secondaryButtonPressed: { backgroundColor: theme.colors.status.danger.background },
-  secondaryButtonText: { color: theme.colors.status.danger.text, fontSize: 15, fontWeight: '800' },
-  errorNotice: { backgroundColor: theme.colors.status.danger.background, borderColor: theme.colors.status.danger.border, borderWidth: 1, borderRadius: theme.radii.md, padding: theme.spacing.md },
+  primaryButton: { borderRadius: theme.radii.pill },
+  secondaryButton: { borderColor: theme.colors.status.danger.border, borderRadius: theme.radii.pill },
   errorText: { color: theme.colors.status.danger.text, fontSize: 13, lineHeight: 18 },
 });
