@@ -4,7 +4,7 @@ import { Chip } from 'react-native-paper';
 import type { ShipmentStatus } from '@/domain/shipment';
 import { theme } from '@/theme';
 
-const statusLabels: Record<ShipmentStatus, string> = {
+export const shipmentStatusLabels: Record<ShipmentStatus, string> = {
   procesando: 'Procesando',
   asignada: 'Asignada',
   en_ruta: 'En ruta',
@@ -50,7 +50,7 @@ export function ShipmentStatusChip({ status }: { status?: ShipmentStatus }) {
       mode="flat"
       style={[styles.chip, { backgroundColor: palette.backgroundColor }]}
       textStyle={[styles.label, { color: palette.color }]}>
-      {statusLabels[status]}
+      {shipmentStatusLabels[status]}
     </Chip>
   );
 }

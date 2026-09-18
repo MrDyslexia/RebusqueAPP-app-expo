@@ -77,6 +77,8 @@ export function shipmentIdToApiId(shipmentId: ShipmentId): number {
 export interface AssignedShipment {
   id: ShipmentId;
   reference: string;
+  /** Raw creation date supplied by the backend for inbox date ordering. */
+  createdAt: string;
   recipientName: string;
   deliveryAddress: string;
   pickupAddress: string | null;
@@ -91,6 +93,7 @@ export function toAssignedShipment(encomienda: Encomienda): AssignedShipment {
   return {
     id: apiIdToShipmentId(encomienda.id),
     reference: encomienda.numeroSeguimiento,
+    createdAt: encomienda.createdAt,
     recipientName: encomienda.destinatarioNombre,
     deliveryAddress: encomienda.direccionEnvio,
     pickupAddress: encomienda.direccionRetiro,
