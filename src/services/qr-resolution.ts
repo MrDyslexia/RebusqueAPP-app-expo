@@ -1,8 +1,6 @@
-import { router } from 'expo-router';
-
 import type { AssignedShipment, ShipmentId, ShipmentStatus } from '@/domain/shipment';
 import { ConductorApiError, type ConductorApi } from '@/services/conductor-api';
-import { clearSessionToken } from '@/services/session-token-store';
+import { invalidateSessionAndRedirectToLogin } from '@/services/session-token-store';
 
 /**
  * Thrown for every QR-resolution outcome the caller must surface to the
@@ -31,11 +29,7 @@ async function handleConductorApiError(error: unknown, fallbackMessage: string):
     if (error.status === 401) {
       // Sesión inválida o reemplazada: borrar sesión y forzar login. Nunca
       // reintentar automáticamente la transición.
-      await clearSessionToken().catch(() => {
-        // Best-effort: still force the driver back to login below even if
-        // clearing the stored token itself failed.
-      });
-      router.replace('/');
+      await invalidateSessionAndRedirectToLogin();
       throw new QrResolutionError('Tu sesión ya no es válida. Inicia sesión nuevamente.');
     }
 

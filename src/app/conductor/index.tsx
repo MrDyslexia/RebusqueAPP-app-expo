@@ -10,6 +10,7 @@ import { appConfig } from '@/config/app-config';
 import { useRealtimeShipmentEvents } from '@/hooks/use-realtime-shipment-events';
 import { type DailyShipmentSummary } from '@/services/conductor-api';
 import { getConductorApi } from '@/services/get-conductor-api';
+import { stopPositionTracking } from '@/services/location-tracking';
 import { clearSessionToken } from '@/services/session-token-store';
 import { theme } from '@/theme';
 import { paperIcon } from '@/utils/paper-icon';
@@ -84,6 +85,7 @@ export default function ConductorHomeScreen() {
     setIsSigningOut(true);
 
     try {
+      await stopPositionTracking();
       await clearSessionToken();
     } finally {
       // Always leave the driver workspace, even if clearing the stored

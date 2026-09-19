@@ -4,6 +4,12 @@ import { PaperProvider } from 'react-native-paper';
 
 import { paperTheme } from '@/theme/paper-theme';
 
+// Side-effect import: registers the DEP-002 background location task
+// (`TaskManager.defineTask`) at module scope before the app can ever call
+// `Location.startLocationUpdatesAsync`. Must stay a top-level import here,
+// not inside a component or effect.
+import '@/services/location-tracking';
+
 export default function RootLayout() {
   return (
     <PaperProvider theme={paperTheme}>

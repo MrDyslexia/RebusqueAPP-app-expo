@@ -6,6 +6,7 @@ import { Button, Card, HelperText, TextInput } from 'react-native-paper';
 
 import { appConfig } from '@/config/app-config';
 import { signIn } from '@/services/auth-session';
+import { startPositionTracking } from '@/services/location-tracking';
 import { saveSessionToken } from '@/services/session-token-store';
 import { theme } from '@/theme';
 import { paperIcon } from '@/utils/paper-icon';
@@ -60,6 +61,10 @@ export default function LoginScreen() {
         const token = await signIn({ rut: validatedRut.canonical, password });
         await saveSessionToken(token);
       }
+
+      // Telemetry, not an access gate: never blocks navigation to the
+      // driver workspace even if every location permission is denied.
+      void startPositionTracking();
 
       router.replace('/conductor');
     } catch (error: unknown) {

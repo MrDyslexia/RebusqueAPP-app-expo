@@ -1,5 +1,5 @@
 import { shipmentIdToApiId, toAssignedShipment, type Encomienda } from '@/domain/shipment';
-import { ConductorApiError, type ConductorApi, type DailyShipmentSummary } from '@/services/conductor-api';
+import { ConductorApiError, type ConductorApi, type DailyShipmentSummary, type DriverPosition } from '@/services/conductor-api';
 import { conductorApiRequest, getApiBaseUrl, getAuthorizationHeader } from '@/services/conductor-http-client';
 
 interface EncomiendaEnvelope {
@@ -132,6 +132,13 @@ export const httpConductorApi: ConductorApi = {
 
   async getFailureReportPhotoUri(shipmentId) {
     return fetchPhotoUri(shipmentId, 'foto-entrega-fallida', 'No se pudo obtener la foto del reporte de falla.');
+  },
+
+  async reportPosition(position: DriverPosition) {
+    await conductorApiRequest<unknown>('/posiciones', {
+      method: 'POST',
+      body: { latitud: position.latitud, longitud: position.longitud },
+    });
   },
 };
 

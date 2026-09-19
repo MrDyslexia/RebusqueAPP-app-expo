@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 
 const SESSION_TOKEN_KEY = 'rebusqueapp.session-token';
 
@@ -48,4 +49,19 @@ export async function clearSessionToken(): Promise<void> {
   } catch {
     throw new SessionStorageError('No fue posible eliminar la sesión almacenada en este dispositivo.');
   }
+}
+
+/**
+ * Centralizes the "borrar sesión y pedir login, nunca reintentar" reaction
+ * to an `HTTP 401` from any conductor endpoint (QR resolution/transitions,
+ * position reporting, etc). Never throws: clearing the token is
+ * best-effort, and the driver is redirected to login regardless of whether
+ * it succeeded, matching the sign-out flow in `conductor/index.tsx`.
+ */
+export async function invalidateSessionAndRedirectToLogin(): Promise<void> {
+  await clearSessionToken().catch(() => {
+    // Best-effort: still force the driver back to login below even if
+    // clearing the stored token itself failed.
+  });
+  router.replace('/');
 }

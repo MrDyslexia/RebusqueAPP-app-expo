@@ -123,4 +123,9 @@ export const fixtureConductorApi: ConductorApi = {
     // real backend's 404 → null "no photo saved" outcome.
     return null;
   },
+
+  async reportPosition(_position) {
+    // No real network call in fixture mode, consistent with every other
+    // fixture method: local development never talks to `m4.blocktype.cl`.
+  },
 };

@@ -66,6 +66,21 @@ export interface ConductorApi {
    * {@link getDeliveryPhotoUri}.
    */
   getFailureReportPhotoUri(shipmentId: ShipmentId): Promise<string | null>;
+  /**
+   * `POST /posiciones` (DEP-002) — reports the driver's current GPS
+   * coordinates in real time while a session is active. The backend
+   * resolves `conductorId`, `turnoId` and `capturadoAt` server-side; the
+   * body only ever carries `latitud`/`longitud`. Resolves to `void` because
+   * callers only need to know it did not throw; the stored `posicion`
+   * envelope in the `201` response carries nothing the client acts on.
+   */
+  reportPosition(position: DriverPosition): Promise<void>;
+}
+
+/** Coordinates sent to `POST /posiciones`, per the DEP-002 contract. */
+export interface DriverPosition {
+  latitud: number;
+  longitud: number;
 }
 
 /** Thrown when there is no session token available to authenticate a request. */
