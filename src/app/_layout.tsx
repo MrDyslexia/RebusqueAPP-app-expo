@@ -1,4 +1,5 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 
@@ -9,8 +10,25 @@ import { paperTheme } from '@/theme/paper-theme';
 // `Location.startLocationUpdatesAsync`. Must stay a top-level import here,
 // not inside a component or effect.
 import '@/services/location-tracking';
+import { restorePersistedConductorSession } from '@/services/session-bootstrap';
 
 export default function RootLayout() {
+  const router = useRouter();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void restorePersistedConductorSession().then((restored) => {
+      if (isMounted && restored) {
+        router.replace('/conductor');
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
   return (
     <PaperProvider theme={paperTheme}>
       <StatusBar style="dark" />

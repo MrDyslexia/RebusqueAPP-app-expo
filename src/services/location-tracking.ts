@@ -9,10 +9,15 @@ import {
   deriveOperationalState,
   type LocationTrackingError,
   type LocationTrackingStatus,
+  type LocationTransport,
 } from '@/services/location-tracking-state';
 import { invalidateSessionAndRedirectToLogin } from '@/services/session-token-store';
 
-export type { LocationTrackingError, LocationTrackingStatus } from '@/services/location-tracking-state';
+export {
+  transportAttemptText,
+  type LocationTrackingError,
+  type LocationTrackingStatus,
+} from '@/services/location-tracking-state';
 
 /**
  * DEP-002 — real-time driver position tracking. The foreground watcher runs
@@ -46,7 +51,14 @@ let trackingStatus: LocationTrackingStatus = {
   foregroundWatcher: 'inactive',
   backgroundService: 'inactive',
   operationalState: 'not-tracking',
-  lastSuccessfulPostAt: null,
+  locationCallbackCount: 0,
+  lastLocationCallbackAt: null,
+  lastTransportAttempt: {
+    type: 'none',
+    result: 'none',
+    attemptedAt: null,
+    error: null,
+  },
   lastError: null,
 };
 
@@ -66,17 +78,35 @@ function updateTrackingStatus(changes: Partial<Omit<LocationTrackingStatus, 'ope
   statusListeners.forEach((listener) => listener());
 }
 
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
-
-function recordError(source: LocationTrackingError['source'], error: unknown, fallback: string): void {
+function recordError(source: LocationTrackingError['source'], fallback: string): void {
   updateTrackingStatus({
     lastError: {
       source,
-      message: errorMessage(error, fallback),
+      message: fallback,
       occurredAt: Date.now(),
     },
+  });
+}
+
+function recordTransportAttempt(
+  type: LocationTransport,
+  result: LocationTrackingStatus['lastTransportAttempt']['result'],
+  error: string | null = null,
+): void {
+  updateTrackingStatus({
+    lastTransportAttempt: {
+      type,
+      result,
+      attemptedAt: Date.now(),
+      error,
+    },
+  });
+}
+
+function recordLocationCallback(): void {
+  updateTrackingStatus({
+    locationCallbackCount: trackingStatus.locationCallbackCount + 1,
+    lastLocationCallbackAt: Date.now(),
   });
 }
 
@@ -85,27 +115,43 @@ async function refreshProviderStatus(): Promise<void> {
     const providerStatus = await Location.getProviderStatusAsync();
     const isAvailable = providerStatus.locationServicesEnabled && (providerStatus.gpsAvailable ?? true);
     updateTrackingStatus({ gpsProvider: isAvailable ? 'available' : 'unavailable' });
-  } catch (error) {
+  } catch {
     updateTrackingStatus({ gpsProvider: 'error' });
-    recordError('provider', error, 'No se pudo consultar la disponibilidad del proveedor GPS.');
+    recordError('provider', 'No se pudo consultar la disponibilidad del proveedor GPS.');
   }
 }
 
 async function sendPosition(coords: { latitude: number; longitude: number }): Promise<void> {
+  let attemptedTransport: LocationTransport = 'none';
+
   try {
-    if (AppState.currentState === 'active' && sendRealtimePosition(coords.latitude, coords.longitude)) {
-      updateTrackingStatus({ lastSuccessfulPostAt: Date.now() });
-      return;
+    if (AppState.currentState === 'active') {
+      attemptedTransport = 'websocket';
+
+      if (sendRealtimePosition(coords.latitude, coords.longitude)) {
+        recordTransportAttempt('websocket', 'sent');
+        return;
+      }
     }
 
     // The published request contract stays unchanged: only the two coordinates
     // are sent and a resolved request means the backend accepted its 201 response.
+    attemptedTransport = 'http';
+    recordTransportAttempt('http', 'pending');
     await getConductorApi().reportPosition({ latitud: coords.latitude, longitud: coords.longitude });
-    updateTrackingStatus({ lastSuccessfulPostAt: Date.now() });
+    recordTransportAttempt('http', 'confirmed');
   } catch (error) {
+    const fallback = error instanceof ConductorApiError
+      ? 'No se pudo enviar la ubicación del conductor.'
+      : 'Error inesperado al enviar la ubicación del conductor.';
+
+    if (attemptedTransport !== 'none') {
+      recordTransportAttempt(attemptedTransport, 'failed', fallback);
+    }
+
     if (error instanceof ConductorApiError) {
       if (error.status === 401) {
-        recordError('position-post', error, 'La sesión ya no es válida para enviar ubicación.');
+        recordError('position-post', 'La sesión ya no es válida para enviar ubicación.');
         await stopPositionTracking();
         await invalidateSessionAndRedirectToLogin();
         return;
@@ -116,27 +162,32 @@ async function sendPosition(coords: { latitude: number; longitude: number }): Pr
         return;
       }
 
-      recordError('position-post', error, 'No se pudo enviar la ubicación del conductor.');
-      console.warn('[location-tracking] No se pudo enviar la posición del conductor.', error.message);
+      recordError('position-post', fallback);
+      console.warn('[location-tracking] No se pudo enviar la posición del conductor.');
       return;
     }
 
-    recordError('position-post', error, 'Error inesperado al enviar la ubicación del conductor.');
-    console.warn('[location-tracking] Error inesperado al enviar la posición del conductor.', error);
+    recordError('position-post', fallback);
+    console.warn('[location-tracking] Error inesperado al enviar la posición del conductor.');
   }
+}
+
+async function handleLocationCallback(coords: { latitude: number; longitude: number }): Promise<void> {
+  recordLocationCallback();
+  await sendPosition(coords);
 }
 
 TaskManager.defineTask(
   LOCATION_TASK_NAME,
   async ({ data, error }: TaskManager.TaskManagerTaskBody<{ locations: Location.LocationObject[] }>) => {
     if (error) {
-      recordError('background-task', error, 'La tarea de ubicación en segundo plano falló.');
-      console.warn('[location-tracking] Falla en la tarea de ubicación en segundo plano.', error.message);
+      recordError('background-task', 'La tarea de ubicación en segundo plano falló.');
+      console.warn('[location-tracking] Falla en la tarea de ubicación en segundo plano.');
       return;
     }
 
     for (const location of data?.locations ?? []) {
-      await sendPosition(location.coords);
+      await handleLocationCallback(location.coords);
     }
   },
 );
@@ -165,16 +216,16 @@ async function startForegroundWatch(): Promise<void> {
             // native callbacks from the now-orphaned subscription.
             return;
           }
-          void sendPosition(location.coords);
+          void handleLocationCallback(location.coords);
         },
-        (reason) => {
+        () => {
           if (generation !== foregroundWatchGeneration) {
             return;
           }
           foregroundWatchSubscription?.remove();
           foregroundWatchSubscription = null;
           updateTrackingStatus({ foregroundWatcher: 'error' });
-          recordError('foreground-watcher', new Error(reason), 'El watcher de ubicación en primer plano falló.');
+          recordError('foreground-watcher', 'El watcher de ubicación en primer plano falló.');
         },
       );
 
@@ -194,14 +245,14 @@ async function startForegroundWatch(): Promise<void> {
         subscription.remove();
         updateTrackingStatus({ foregroundWatcher: 'inactive' });
       }
-    } catch (error) {
+    } catch {
       if (generation !== foregroundWatchGeneration) {
         return;
       }
       foregroundWatchSubscription = null;
       updateTrackingStatus({ foregroundWatcher: 'error' });
-      recordError('foreground-watcher', error, 'No se pudo iniciar el watcher de ubicación en primer plano.');
-      console.warn('[location-tracking] No se pudo iniciar el watcher de ubicación en primer plano.', error);
+      recordError('foreground-watcher', 'No se pudo iniciar el watcher de ubicación en primer plano.');
+      console.warn('[location-tracking] No se pudo iniciar el watcher de ubicación en primer plano.');
     }
   })();
 
@@ -271,10 +322,10 @@ async function startBackgroundUpdates(): Promise<void> {
       }
 
       updateTrackingStatus({ backgroundService: 'active' });
-    } catch (error) {
+    } catch {
       updateTrackingStatus({ backgroundService: 'error' });
-      recordError('background-service', error, 'No se pudo iniciar el seguimiento en segundo plano.');
-      console.warn('[location-tracking] No se pudo iniciar el seguimiento en segundo plano.', error);
+      recordError('background-service', 'No se pudo iniciar el seguimiento en segundo plano.');
+      console.warn('[location-tracking] No se pudo iniciar el seguimiento en segundo plano.');
     }
   })();
 
@@ -291,10 +342,10 @@ async function stopBackgroundUpdates(): Promise<void> {
       await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
     }
     updateTrackingStatus({ backgroundService: 'inactive' });
-  } catch (error) {
+  } catch {
     updateTrackingStatus({ backgroundService: 'error' });
-    recordError('background-service', error, 'No se pudo detener el seguimiento en segundo plano.');
-    console.warn('[location-tracking] No se pudo detener el seguimiento en segundo plano.', error);
+    recordError('background-service', 'No se pudo detener el seguimiento en segundo plano.');
+    console.warn('[location-tracking] No se pudo detener el seguimiento en segundo plano.');
   }
 }
 
@@ -328,10 +379,10 @@ async function resumeForegroundTracking(): Promise<void> {
     if (hasBackgroundPermission) {
       await startBackgroundUpdates();
     }
-  } catch (error) {
+  } catch {
     updateTrackingStatus({ foregroundPermission: 'error' });
-    recordError('permission', error, 'No se pudo revalidar el permiso de ubicación al volver a la aplicación.');
-    console.warn('[location-tracking] No se pudo reanudar el seguimiento en primer plano.', error);
+    recordError('permission', 'No se pudo revalidar el permiso de ubicación al volver a la aplicación.');
+    console.warn('[location-tracking] No se pudo reanudar el seguimiento en primer plano.');
   }
 }
 
@@ -369,7 +420,14 @@ export async function startPositionTracking(): Promise<void> {
     gpsProvider: 'unknown',
     foregroundWatcher: 'inactive',
     backgroundService: 'inactive',
-    lastSuccessfulPostAt: null,
+    locationCallbackCount: 0,
+    lastLocationCallbackAt: null,
+    lastTransportAttempt: {
+      type: 'none',
+      result: 'none',
+      attemptedAt: null,
+      error: null,
+    },
     lastError: null,
   });
   registerAppStateListener();
@@ -381,10 +439,10 @@ export async function startPositionTracking(): Promise<void> {
 
     try {
       foregroundPermission = await Location.requestForegroundPermissionsAsync();
-    } catch (error) {
+    } catch {
       updateTrackingStatus({ foregroundPermission: 'error' });
-      recordError('permission', error, 'No se pudo solicitar el permiso de ubicación en primer plano.');
-      console.warn('[location-tracking] No se pudo solicitar el permiso de ubicación en primer plano.', error);
+      recordError('permission', 'No se pudo solicitar el permiso de ubicación en primer plano.');
+      console.warn('[location-tracking] No se pudo solicitar el permiso de ubicación en primer plano.');
       return;
     }
 
@@ -408,10 +466,10 @@ export async function startPositionTracking(): Promise<void> {
       if (hasBackgroundPermission) {
         await startBackgroundUpdates();
       }
-    } catch (error) {
+    } catch {
       updateTrackingStatus({ backgroundPermission: 'error' });
-      recordError('permission', error, 'No se pudo solicitar el permiso de ubicación en segundo plano.');
-      console.warn('[location-tracking] No se pudo solicitar el permiso de ubicación en segundo plano.', error);
+      recordError('permission', 'No se pudo solicitar el permiso de ubicación en segundo plano.');
+      console.warn('[location-tracking] No se pudo solicitar el permiso de ubicación en segundo plano.');
     }
   })();
 

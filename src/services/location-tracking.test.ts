@@ -70,13 +70,14 @@ mock.module('expo-task-manager', () => ({
 }));
 
 const reportPosition = mock(async () => undefined);
+const sendRealtimePosition = mock(() => false);
 
 mock.module('@/services/get-conductor-api', () => ({
   getConductorApi: () => ({ reportPosition }),
 }));
 
 mock.module('@/services/session-websocket', () => ({
-  sendRealtimePosition: () => false,
+  sendRealtimePosition,
 }));
 
 mock.module('@/services/session-token-store', () => ({
@@ -99,7 +100,54 @@ beforeEach(async () => {
   watchPositionAsync.mockClear();
   getProviderStatusAsync.mockClear();
   reportPosition.mockClear();
+  sendRealtimePosition.mockClear();
+  sendRealtimePosition.mockImplementation(() => false);
   await stopPositionTracking();
+});
+
+describe('location callback transport diagnostics', () => {
+  test('records a callback and uses WebSocket without calling the HTTP fallback when it is open', async () => {
+    sendRealtimePosition.mockImplementation(() => true);
+    void startPositionTracking();
+    await flush();
+
+    const attempt = watchPositionCalls[0]!;
+    attempt.resolve({ remove: mock(() => undefined) });
+    await flush();
+
+    attempt.onLocation({ coords: { latitude: -33.4, longitude: -70.6 } });
+    await flush();
+
+    expect(reportPosition).not.toHaveBeenCalled();
+    expect(getLocationTrackingStatus()).toMatchObject({
+      locationCallbackCount: 1,
+      lastLocationCallbackAt: expect.any(Number),
+      lastTransportAttempt: {
+        type: 'websocket',
+        result: 'sent',
+        error: null,
+      },
+    });
+  });
+
+  test('uses the HTTP 201 reporting path when the WebSocket is unavailable', async () => {
+    void startPositionTracking();
+    await flush();
+
+    const attempt = watchPositionCalls[0]!;
+    attempt.resolve({ remove: mock(() => undefined) });
+    await flush();
+
+    attempt.onLocation({ coords: { latitude: -33.4, longitude: -70.6 } });
+    await flush();
+
+    expect(reportPosition).toHaveBeenCalledWith({ latitud: -33.4, longitud: -70.6 });
+    expect(getLocationTrackingStatus().lastTransportAttempt).toMatchObject({
+      type: 'http',
+      result: 'confirmed',
+      error: null,
+    });
+  });
 });
 
 describe('startForegroundWatch generation guard', () => {

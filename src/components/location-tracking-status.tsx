@@ -5,6 +5,7 @@ import { StatusNotice, type StatusNoticeVariant } from '@/components/status-noti
 import {
   getLocationTrackingStatus,
   subscribeToLocationTrackingStatus,
+  transportAttemptText,
   type LocationTrackingStatus,
 } from '@/services/location-tracking';
 import { theme } from '@/theme';
@@ -12,7 +13,7 @@ import { theme } from '@/theme';
 function getOperationalStateText(status: LocationTrackingStatus): string {
   switch (status.operationalState) {
     case 'tracking':
-      return 'Enviando ubicación al servidor.';
+      return 'Seguimiento activo; revisa el último transporte.';
     case 'background-tracking':
       return 'La aplicación está en segundo plano y el servicio sigue activo.';
     case 'app-open-without-gps':
@@ -62,10 +63,8 @@ function providerText(status: LocationTrackingStatus['gpsProvider']): string {
   }[status];
 }
 
-function timestampText(timestamp: number | null): string {
-  return timestamp === null
-    ? 'Aún no hay un POST confirmado.'
-    : `Confirmado a las ${new Date(timestamp).toLocaleTimeString('es-CL')}.`;
+function timeText(timestamp: number | null): string {
+  return timestamp === null ? 'Sin registro horario.' : new Date(timestamp).toLocaleTimeString('es-CL');
 }
 
 export function LocationTrackingStatusNotice() {
@@ -89,7 +88,14 @@ export function LocationTrackingStatusNotice() {
       {'\n'}
       <Text style={styles.detail}>Servicio en segundo plano: {workerText(status.backgroundService)}.</Text>
       {'\n'}
-      <Text style={styles.detail}>Último POST exitoso: {timestampText(status.lastSuccessfulPostAt)}</Text>
+      <Text style={styles.detail}>
+        Callbacks de ubicación recibidos: {status.locationCallbackCount}. Último: {timeText(status.lastLocationCallbackAt)}.
+      </Text>
+      {'\n'}
+      <Text style={styles.detail}>
+        Último intento de transporte: {transportAttemptText(status.lastTransportAttempt)} {timeText(status.lastTransportAttempt.attemptedAt)}.
+        {status.lastTransportAttempt.error ? ` Detalle seguro: ${status.lastTransportAttempt.error}` : ''}
+      </Text>
       {'\n'}
       <Text style={styles.detail}>
         Último error: {status.lastError ? `${status.lastError.message} (${new Date(status.lastError.occurredAt).toLocaleTimeString('es-CL')}).` : 'Sin errores registrados.'}
