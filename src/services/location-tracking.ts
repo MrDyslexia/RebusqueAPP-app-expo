@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus, type NativeEventSubscription } from 'rea
 
 import { ConductorApiError } from '@/services/conductor-api';
 import { getConductorApi } from '@/services/get-conductor-api';
+import { sendRealtimePosition } from '@/services/session-websocket';
 import {
   deriveOperationalState,
   type LocationTrackingError,
@@ -92,6 +93,11 @@ async function refreshProviderStatus(): Promise<void> {
 
 async function sendPosition(coords: { latitude: number; longitude: number }): Promise<void> {
   try {
+    if (AppState.currentState === 'active' && sendRealtimePosition(coords.latitude, coords.longitude)) {
+      updateTrackingStatus({ lastSuccessfulPostAt: Date.now() });
+      return;
+    }
+
     // The published request contract stays unchanged: only the two coordinates
     // are sent and a resolved request means the backend accepted its 201 response.
     await getConductorApi().reportPosition({ latitud: coords.latitude, longitud: coords.longitude });

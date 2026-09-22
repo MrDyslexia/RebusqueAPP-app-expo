@@ -71,6 +71,13 @@ interface RealtimeConnectionOptions {
 }
 
 const MAX_RECONNECT_DELAY_MS = 30_000;
+let positionSocket: WebSocket | null = null;
+
+export function sendRealtimePosition(latitud: number, longitud: number): boolean {
+  if (!positionSocket || positionSocket.readyState !== WebSocket.OPEN) return false;
+  positionSocket.send(JSON.stringify({ type: 'posicion_actualizada', data: { latitud, longitud } }));
+  return true;
+}
 
 export function connectRealtimeSession({
   token,
@@ -125,6 +132,7 @@ export function connectRealtimeSession({
 
       currentSocket.onopen = () => {
         if (socket !== currentSocket) return;
+        positionSocket = currentSocket;
         reconnectAttempt = 0;
         updateState('connected');
       };
@@ -147,6 +155,7 @@ export function connectRealtimeSession({
 
       currentSocket.onclose = () => {
         if (socket !== currentSocket) return;
+        if (positionSocket === currentSocket) positionSocket = null;
         socket = null;
         if (!isDisconnected) scheduleReconnect();
       };
@@ -169,6 +178,7 @@ export function connectRealtimeSession({
     clearReconnectTimer();
     const activeSocket = socket;
     socket = null;
+    if (positionSocket === activeSocket) positionSocket = null;
     activeSocket?.close();
     updateState('disconnected');
   }
@@ -185,6 +195,7 @@ export function connectRealtimeSession({
 
       const activeSocket = socket;
       socket = null;
+      if (positionSocket === activeSocket) positionSocket = null;
       activeSocket?.close();
 
       updateState('disconnected');

@@ -75,6 +75,10 @@ mock.module('@/services/get-conductor-api', () => ({
   getConductorApi: () => ({ reportPosition }),
 }));
 
+mock.module('@/services/session-websocket', () => ({
+  sendRealtimePosition: () => false,
+}));
+
 mock.module('@/services/session-token-store', () => ({
   getSessionToken: mock(async () => 'test-session-token'),
   invalidateSessionAndRedirectToLogin: mock(async () => undefined),
