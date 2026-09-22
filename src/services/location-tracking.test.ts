@@ -76,6 +76,7 @@ mock.module('@/services/get-conductor-api', () => ({
 }));
 
 mock.module('@/services/session-token-store', () => ({
+  getSessionToken: mock(async () => 'test-session-token'),
   invalidateSessionAndRedirectToLogin: mock(async () => undefined),
 }));
 

@@ -1,3 +1,5 @@
+import { AppState, type AppStateStatus, type NativeEventSubscription } from 'react-native';
+
 import type { ShipmentStatus } from '@/domain/shipment';
 import { getWebSocketUrl } from '@/services/auth-session';
 
@@ -79,78 +81,111 @@ export function connectRealtimeSession({
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let reconnectAttempt = 0;
   let isDisconnected = false;
+  // AppState can be null during native bootstrap; connect now and let the
+  // first lifecycle event correct it instead of leaving the session offline.
+  let isAppActive = AppState.currentState !== 'background' && AppState.currentState !== 'inactive';
+  let appStateSubscription: NativeEventSubscription | null = null;
 
   function updateState(status: RealtimeConnectionStatus) {
     onStateChange({ status, reconnectAttempt });
   }
 
+  function clearReconnectTimer() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
+
   function scheduleReconnect() {
+    if (isDisconnected || !isAppActive || reconnectTimer) {
+      return;
+    }
+
     reconnectAttempt += 1;
     updateState('reconnecting');
 
     const delayMs = Math.min(1_000 * 2 ** (reconnectAttempt - 1), MAX_RECONNECT_DELAY_MS);
-    reconnectTimer = setTimeout(connect, delayMs);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, delayMs);
   }
 
   function connect() {
-    if (isDisconnected) {
+    if (isDisconnected || !isAppActive || socket) {
       return;
     }
 
     updateState(reconnectAttempt === 0 ? 'connecting' : 'reconnecting');
 
     try {
-      socket = new WebSocket(getWebSocketUrl(token));
+      const currentSocket = new WebSocket(getWebSocketUrl(token));
+      socket = currentSocket;
+
+      currentSocket.onopen = () => {
+        if (socket !== currentSocket) return;
+        reconnectAttempt = 0;
+        updateState('connected');
+      };
+
+      currentSocket.onmessage = (event) => {
+        if (socket !== currentSocket) return;
+        const rawPayload = typeof event.data === 'string' ? event.data : String(event.data);
+        onEvent({
+          receivedAt: new Date().toISOString(),
+          event: parseRealtimeMessage(rawPayload),
+          rawPayload,
+        });
+      };
+
+      currentSocket.onerror = () => {
+        if (socket !== currentSocket) return;
+        updateState('error');
+        currentSocket.close();
+      };
+
+      currentSocket.onclose = () => {
+        if (socket !== currentSocket) return;
+        socket = null;
+        if (!isDisconnected) scheduleReconnect();
+      };
     } catch {
       updateState('error');
       scheduleReconnect();
+    }
+  }
+
+  function handleAppStateChange(nextState: AppStateStatus) {
+    isAppActive = nextState === 'active';
+
+    if (isAppActive) {
+      reconnectAttempt = 0;
+      connect();
       return;
     }
 
-    socket.onopen = () => {
-      reconnectAttempt = 0;
-      updateState('connected');
-    };
-
-    socket.onmessage = (event) => {
-      const rawPayload = typeof event.data === 'string' ? event.data : String(event.data);
-
-      onEvent({
-        receivedAt: new Date().toISOString(),
-        event: parseRealtimeMessage(rawPayload),
-        rawPayload,
-      });
-    };
-
-    socket.onerror = () => {
-      updateState('error');
-      socket?.close();
-    };
-
-    socket.onclose = () => {
-      socket = null;
-
-      if (!isDisconnected) {
-        scheduleReconnect();
-      }
-    };
+    // Android may suspend timers and preserve a dead socket in memory.
+    clearReconnectTimer();
+    const activeSocket = socket;
+    socket = null;
+    activeSocket?.close();
+    updateState('disconnected');
   }
 
+  appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
   connect();
 
   return {
     disconnect() {
       isDisconnected = true;
+      appStateSubscription?.remove();
+      appStateSubscription = null;
+      clearReconnectTimer();
 
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-
-      if (socket) {
-        socket.close();
-        socket = null;
-      }
+      const activeSocket = socket;
+      socket = null;
+      activeSocket?.close();
 
       updateState('disconnected');
     },
