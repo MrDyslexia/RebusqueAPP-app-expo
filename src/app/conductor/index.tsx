@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Dialog, IconButton, Portal } from 'react-native-paper';
 
 import { DriverActionCard } from '@/components/driver-action-card';
+import { LocationTrackingStatusNotice } from '@/components/location-tracking-status';
 import { RealtimeConnectionStatus } from '@/components/realtime-connection-status';
 import { appConfig } from '@/config/app-config';
 import { useRealtimeShipmentEvents } from '@/hooks/use-realtime-shipment-events';
@@ -166,6 +167,7 @@ export default function ConductorHomeScreen() {
         </Portal>
 
         <RealtimeConnectionStatus connection={connection} latestEvent={latestEvent} />
+        <LocationTrackingStatusNotice />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>

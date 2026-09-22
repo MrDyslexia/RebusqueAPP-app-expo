@@ -138,6 +138,7 @@ export const httpConductorApi: ConductorApi = {
     await conductorApiRequest<unknown>('/posiciones', {
       method: 'POST',
       body: { latitud: position.latitud, longitud: position.longitud },
+      expectedStatus: 201,
     });
   },
 };

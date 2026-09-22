@@ -75,6 +75,7 @@ export function getApiBaseUrl(): URL {
 interface ConductorApiRequestOptions {
   method?: 'GET' | 'POST';
   body?: Record<string, unknown>;
+  expectedStatus?: number;
 }
 
 /**
@@ -122,7 +123,11 @@ export async function conductorApiRequest<T>(
     throw new ConductorApiError('No fue posible conectar con el backend de RebusqueAPP.');
   }
 
-  if (!response.ok) {
+  if (!response.ok || (options.expectedStatus !== undefined && response.status !== options.expectedStatus)) {
+    if (response.ok) {
+      throw new ConductorApiError(`Respuesta HTTP inesperada (${response.status}).`, response.status);
+    }
+
     throw new ConductorApiError(await readBackendErrorMessage(response), response.status);
   }
 
