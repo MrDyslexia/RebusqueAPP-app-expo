@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 // --- react-native AppState mock -------------------------------------------
 // The real react-native package uses Flow syntax that bun:test cannot parse,
@@ -77,10 +77,37 @@ mock.module('@/services/get-conductor-api', () => ({
   getConductorApi: () => ({ reportPosition }),
 }));
 
+// bun:test resolves mock.module() by absolute file path, so this mock would
+// otherwise leak into session-websocket.test.ts (which imports the same file
+// via a relative specifier) and silently replace the real implementation
+// under test there. Capture the real exports now — with react-native already
+// mocked above and auth-session stubbed so its transitive device-identity ->
+// expo-application chain never loads — and restore them in afterAll so other
+// test files see the genuine implementation again.
+//
+// Destructure the concrete function values (not the module namespace object)
+// before mocking: mock.module() keeps ESM namespace objects live-bound, so a
+// captured namespace reference would silently start pointing at the stub's
+// exports too the moment the stub mock.module() call below runs.
+mock.module('@/services/auth-session', () => ({
+  getWebSocketUrl: () => 'wss://capture-only.invalid',
+}));
+const {
+  connectRealtimeSession: realConnectRealtimeSession,
+  sendRealtimePosition: realSendRealtimePosition,
+} = await import('@/services/session-websocket');
+
 mock.module('@/services/session-websocket', () => ({
   connectRealtimeSession,
   sendRealtimePosition,
 }));
+
+afterAll(() => {
+  mock.module('@/services/session-websocket', () => ({
+    connectRealtimeSession: realConnectRealtimeSession,
+    sendRealtimePosition: realSendRealtimePosition,
+  }));
+});
 
 mock.module('@/services/session-token-store', () => ({
   getSessionToken: mock(async () => 'test-session-token'),

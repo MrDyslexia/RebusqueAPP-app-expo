@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 
 type AppStateListener = (state: 'active' | 'background' | 'inactive') => void;
 
@@ -52,7 +52,17 @@ class MockWebSocket {
 const originalWebSocket = globalThis.WebSocket;
 globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
-const { connectRealtimeSession } = await import('./session-websocket');
+// Imported lazily in beforeAll (run phase), not at module top level (load
+// phase). bun:test loads every test file's top-level code before any test
+// runs, so a top-level import here would race location-tracking.test.ts,
+// which mocks this exact file (by resolved path) for its own duration and
+// only restores the real implementation in its own afterAll — which fires
+// during the run phase, after every file's load-phase code has executed.
+let connectRealtimeSession: (typeof import('./session-websocket'))['connectRealtimeSession'];
+
+beforeAll(async () => {
+  ({ connectRealtimeSession } = await import('./session-websocket'));
+});
 
 beforeEach(() => {
   currentAppState = 'active';
