@@ -210,7 +210,7 @@ async function startForegroundWatch(): Promise<void> {
 
     try {
       const subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 1000, distanceInterval: 0 },
+        { accuracy: Location.Accuracy.High, timeInterval: 1000, distanceInterval: 0 },
         (location) => {
           if (generation !== foregroundWatchGeneration) {
             // A stop() ran after this watcher was superseded; ignore late
@@ -306,7 +306,7 @@ async function startBackgroundUpdates(): Promise<void> {
       }
 
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
         timeInterval: 5000,
         distanceInterval: 0,
         foregroundService: {

@@ -51,22 +51,33 @@ const watchPositionAsync = mock(
     }),
 );
 
+const requestBackgroundPermissionsAsync = mock(async () => ({ status: 'denied' }));
+const hasStartedLocationUpdatesAsync = mock(async () => false);
+const startLocationUpdatesAsync = mock(async () => undefined);
+
 mock.module('expo-location', () => ({
-  Accuracy: { Balanced: 3 },
+  Accuracy: { Balanced: 3, High: 4 },
   getProviderStatusAsync,
   getForegroundPermissionsAsync: mock(async () => ({ status: 'granted' })),
   getBackgroundPermissionsAsync: mock(async () => ({ status: 'denied' })),
   requestForegroundPermissionsAsync: mock(async () => ({ status: 'granted' })),
-  requestBackgroundPermissionsAsync: mock(async () => ({ status: 'denied' })),
-  hasStartedLocationUpdatesAsync: mock(async () => false),
-  startLocationUpdatesAsync: mock(async () => undefined),
+  requestBackgroundPermissionsAsync,
+  hasStartedLocationUpdatesAsync,
+  startLocationUpdatesAsync,
   stopLocationUpdatesAsync: mock(async () => undefined),
   watchPositionAsync,
 }));
 
+type BackgroundTaskCallback = (body: {
+  data: { locations: { coords: { latitude: number; longitude: number } }[] };
+  error: null;
+}) => Promise<void>;
+const defineTask = mock((_name: string, _callback: BackgroundTaskCallback) => undefined);
+const isAvailableAsync = mock(async () => false);
+
 mock.module('expo-task-manager', () => ({
-  defineTask: mock(() => undefined),
-  isAvailableAsync: mock(async () => false),
+  defineTask,
+  isAvailableAsync,
 }));
 
 const reportPosition = mock(async () => undefined);
@@ -132,6 +143,67 @@ beforeEach(async () => {
   sendRealtimePosition.mockClear();
   sendRealtimePosition.mockImplementation(() => false);
   await stopPositionTracking();
+  requestBackgroundPermissionsAsync.mockImplementation(async () => ({ status: 'denied' }));
+  hasStartedLocationUpdatesAsync.mockImplementation(async () => false);
+  startLocationUpdatesAsync.mockClear();
+  isAvailableAsync.mockImplementation(async () => false);
+});
+
+describe('production location options', () => {
+  test('requests High accuracy with the existing foreground interval and sends watcher callbacks', async () => {
+    void startPositionTracking();
+    await flush();
+
+    expect(watchPositionAsync).toHaveBeenCalledWith(
+      { accuracy: 4, timeInterval: 1000, distanceInterval: 0 },
+      expect.any(Function),
+      expect.any(Function),
+    );
+
+    const attempt = watchPositionCalls[0]!;
+    attempt.resolve({ remove: mock(() => undefined) });
+    await flush();
+    attempt.onLocation({ coords: { latitude: -33.4, longitude: -70.6 } });
+    await flush();
+
+    expect(getLocationTrackingStatus().locationCallbackCount).toBe(1);
+    expect(reportPosition).toHaveBeenCalledWith({ latitud: -33.4, longitud: -70.6 });
+  });
+
+  test('registers the background task with High accuracy and the existing interval', async () => {
+    requestBackgroundPermissionsAsync.mockImplementation(async () => ({ status: 'granted' }));
+    isAvailableAsync.mockImplementation(async () => true);
+
+    void startPositionTracking();
+    await flush();
+    watchPositionCalls[0]!.resolve({ remove: mock(() => undefined) });
+    await flush();
+
+    expect(startLocationUpdatesAsync).toHaveBeenCalledWith(
+      'rebusqueapp-conductor-position-tracking',
+      {
+        accuracy: 4,
+        timeInterval: 5000,
+        distanceInterval: 0,
+        foregroundService: {
+          notificationTitle: 'RebusqueAPP',
+          notificationBody: 'Compartiendo tu ubicación mientras tienes sesión activa.',
+        },
+        pausesUpdatesAutomatically: false,
+      },
+    );
+    expect(getLocationTrackingStatus().backgroundService).toBe('active');
+    expect(defineTask).toHaveBeenCalledTimes(1);
+
+    const task = defineTask.mock.calls[0]![1];
+    await task({
+      data: { locations: [{ coords: { latitude: -33.4, longitude: -70.6 } }] },
+      error: null,
+    });
+    expect(getLocationTrackingStatus().locationCallbackCount).toBe(1);
+    expect(reportPosition).toHaveBeenCalledWith({ latitud: -33.4, longitud: -70.6 });
+    expect(getLocationTrackingStatus().lastTransportAttempt.result).toBe('confirmed');
+  });
 });
 
 describe('location callback transport diagnostics', () => {
