@@ -58,13 +58,14 @@ beforeEach(() => {
   currentAppState = 'active';
   appStateListeners = [];
   MockWebSocket.instances = [];
+  globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 });
 
 afterEach(() => {
   globalThis.WebSocket = originalWebSocket;
 });
 
-describe('connectRealtimeSession app lifecycle', () => {
+describe.serial('connectRealtimeSession app lifecycle', () => {
   test('creates a fresh socket after Android resumes the application', () => {
     const states: string[] = [];
     const connection = connectRealtimeSession({
@@ -88,5 +89,30 @@ describe('connectRealtimeSession app lifecycle', () => {
 
     connection.disconnect();
     expect(appStateListeners).toHaveLength(0);
+  });
+
+  test('shares one socket between location transport and shipment subscribers', () => {
+    const token = 'shared-test-token';
+    const locationConnection = connectRealtimeSession({
+      token,
+      onEvent: () => undefined,
+      onStateChange: () => undefined,
+    });
+    const shipmentEvents: string[] = [];
+    const shipmentConnection = connectRealtimeSession({
+      token,
+      onEvent: (observation) => shipmentEvents.push(observation.rawPayload),
+      onStateChange: () => undefined,
+    });
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    MockWebSocket.instances[0]!.onopen?.();
+    MockWebSocket.instances[0]!.onmessage?.({ data: '{"type":"conectado","data":{}}' });
+    expect(shipmentEvents).toEqual(['{"type":"conectado","data":{}}']);
+
+    shipmentConnection.disconnect();
+    expect(MockWebSocket.instances[0]!.closed).toBe(false);
+    locationConnection.disconnect();
+    expect(MockWebSocket.instances[0]!.closed).toBe(true);
   });
 });

@@ -72,6 +72,12 @@ interface RealtimeConnectionOptions {
 
 const MAX_RECONNECT_DELAY_MS = 30_000;
 let positionSocket: WebSocket | null = null;
+let sharedSession: {
+  token: string;
+  connection: RealtimeConnection;
+  subscribers: Set<RealtimeConnectionOptions>;
+  state: RealtimeConnectionState;
+} | null = null;
 
 export function sendRealtimePosition(latitud: number, longitud: number): boolean {
   if (!positionSocket || positionSocket.readyState !== WebSocket.OPEN) return false;
@@ -84,6 +90,24 @@ export function connectRealtimeSession({
   onStateChange,
   onEvent,
 }: RealtimeConnectionOptions): RealtimeConnection {
+  const subscriber = { token, onStateChange, onEvent };
+
+  if (sharedSession?.token === token) {
+    sharedSession.subscribers.add(subscriber);
+    subscriber.onStateChange(sharedSession.state);
+    return {
+      disconnect() {
+        if (!sharedSession || !sharedSession.subscribers.delete(subscriber)) return;
+        if (sharedSession.subscribers.size === 0) {
+          sharedSession.connection.disconnect();
+          sharedSession = null;
+        }
+      },
+    };
+  }
+
+  sharedSession?.connection.disconnect();
+
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let reconnectAttempt = 0;
@@ -94,7 +118,13 @@ export function connectRealtimeSession({
   let appStateSubscription: NativeEventSubscription | null = null;
 
   function updateState(status: RealtimeConnectionStatus) {
-    onStateChange({ status, reconnectAttempt });
+    const state = { status, reconnectAttempt };
+    if (sharedSession?.connection === connection) {
+      sharedSession.state = state;
+    }
+    for (const currentSubscriber of sharedSession?.subscribers ?? [subscriber]) {
+      currentSubscriber.onStateChange(state);
+    }
   }
 
   function clearReconnectTimer() {
@@ -140,11 +170,14 @@ export function connectRealtimeSession({
       currentSocket.onmessage = (event) => {
         if (socket !== currentSocket) return;
         const rawPayload = typeof event.data === 'string' ? event.data : String(event.data);
-        onEvent({
+        const observation = {
           receivedAt: new Date().toISOString(),
           event: parseRealtimeMessage(rawPayload),
           rawPayload,
-        });
+        };
+        for (const currentSubscriber of sharedSession?.subscribers ?? [subscriber]) {
+          currentSubscriber.onEvent(observation);
+        }
       };
 
       currentSocket.onerror = () => {
@@ -184,9 +217,7 @@ export function connectRealtimeSession({
   }
 
   appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
-  connect();
-
-  return {
+  const connection: RealtimeConnection = {
     disconnect() {
       isDisconnected = true;
       appStateSubscription?.remove();
@@ -199,6 +230,18 @@ export function connectRealtimeSession({
       activeSocket?.close();
 
       updateState('disconnected');
+      if (sharedSession?.connection === connection) {
+        sharedSession = null;
+      }
     },
   };
+  sharedSession = {
+    token,
+    connection,
+    subscribers: new Set([subscriber]),
+    state: { status: 'connecting', reconnectAttempt: 0 },
+  };
+  connect();
+
+  return connection;
 }

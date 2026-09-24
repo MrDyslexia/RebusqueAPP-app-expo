@@ -4,14 +4,14 @@ import { AppState, type AppStateStatus, type NativeEventSubscription } from 'rea
 
 import { ConductorApiError } from '@/services/conductor-api';
 import { getConductorApi } from '@/services/get-conductor-api';
-import { sendRealtimePosition } from '@/services/session-websocket';
+import { connectRealtimeSession, sendRealtimePosition, type RealtimeConnection } from '@/services/session-websocket';
 import {
   deriveOperationalState,
   type LocationTrackingError,
   type LocationTrackingStatus,
   type LocationTransport,
 } from '@/services/location-tracking-state';
-import { invalidateSessionAndRedirectToLogin } from '@/services/session-token-store';
+import { getSessionToken, invalidateSessionAndRedirectToLogin } from '@/services/session-token-store';
 
 export {
   transportAttemptText,
@@ -35,6 +35,7 @@ let trackingRequested = false;
 let startTrackingPromise: Promise<void> | null = null;
 let startForegroundWatchPromise: Promise<void> | null = null;
 let startBackgroundServicePromise: Promise<void> | null = null;
+let realtimeConnection: RealtimeConnection | null = null;
 // Incremented only when a foreground watch is explicitly invalidated. A start()
 // attempt captures the generation before awaiting the native call; if it changed
 // by the time it resolves, that attempt is stale and must not restore a removed
@@ -400,6 +401,19 @@ function registerAppStateListener(): void {
   }
 }
 
+async function startRealtimeTransport(): Promise<void> {
+  if (realtimeConnection) return;
+
+  const token = await getSessionToken();
+  if (!token || !trackingRequested) return;
+
+  realtimeConnection = connectRealtimeSession({
+    token,
+    onStateChange: () => undefined,
+    onEvent: () => undefined,
+  });
+}
+
 /**
  * Starts driver location telemetry after login without blocking navigation.
  * A failed foreground watcher never leaves the session marked as active: the
@@ -433,6 +447,8 @@ export async function startPositionTracking(): Promise<void> {
   registerAppStateListener();
 
   startTrackingPromise = (async () => {
+    await startRealtimeTransport();
+
     let foregroundPermission: Location.LocationPermissionResponse;
 
     await refreshProviderStatus();
@@ -483,6 +499,8 @@ export async function startPositionTracking(): Promise<void> {
 /** Stops all driver position tracking. Called on logout. */
 export async function stopPositionTracking(): Promise<void> {
   trackingRequested = false;
+  realtimeConnection?.disconnect();
+  realtimeConnection = null;
   appStateSubscription?.remove();
   appStateSubscription = null;
   stopForegroundWatch();

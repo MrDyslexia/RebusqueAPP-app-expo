@@ -71,12 +71,14 @@ mock.module('expo-task-manager', () => ({
 
 const reportPosition = mock(async () => undefined);
 const sendRealtimePosition = mock(() => false);
+const connectRealtimeSession = mock(() => ({ disconnect: mock(() => undefined) }));
 
 mock.module('@/services/get-conductor-api', () => ({
   getConductorApi: () => ({ reportPosition }),
 }));
 
 mock.module('@/services/session-websocket', () => ({
+  connectRealtimeSession,
   sendRealtimePosition,
 }));
 
