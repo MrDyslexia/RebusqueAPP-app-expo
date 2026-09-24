@@ -167,7 +167,7 @@ export default function ConductorHomeScreen() {
         </Portal>
 
         <RealtimeConnectionStatus connection={connection} latestEvent={latestEvent} />
-        <LocationTrackingStatusNotice />
+        <LocationTrackingStatusNotice connection={connection} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones rápidas</Text>

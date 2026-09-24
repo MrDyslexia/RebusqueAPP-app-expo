@@ -13,7 +13,7 @@ export class AuthenticationError extends Error {
   }
 }
 
-function getApiBaseUrl(): URL {
+export function getApiBaseUrl(): URL {
   const configuredUrl = appConfig.apiBaseUrl.trim();
 
   if (!configuredUrl) {
